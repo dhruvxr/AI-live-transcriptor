@@ -127,11 +127,8 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-[#3B82F6] to-[#6D28D9] rounded-lg flex items-center justify-center">
-              <Mic className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-semibold">AI Transcriptor</h1>
+          <div className="flex items-center">
+            <img src="/src/assets/Logo.svg" alt="AI Transcriptor" className="h-16 w-auto" />
           </div>
           <Badge className="bg-green-500 text-white">
             <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>

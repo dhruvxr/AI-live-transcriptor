@@ -48,11 +48,8 @@ export function Settings({ onNavigate }: SettingsProps) {
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-[#3B82F6] to-[#6D28D9] rounded-lg flex items-center justify-center">
-              <Mic className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-semibold">Settings</h1>
+          <div className="flex items-center">
+            <img src="/src/assets/Logo.svg" alt="AI Transcriptor" className="h-16 w-auto" />
           </div>
         </div>
         
@@ -67,6 +64,7 @@ export function Settings({ onNavigate }: SettingsProps) {
 
       {/* Main Content */}
       <main className="p-6 max-w-4xl mx-auto">
+        <h1 className="text-3xl font-semibold text-[#F8FAFC] mb-8">Settings</h1>
         <div className="space-y-6">
           {/* Audio & Voice Settings */}
           <Card className="bg-[#1E293B] border-[#334155]">

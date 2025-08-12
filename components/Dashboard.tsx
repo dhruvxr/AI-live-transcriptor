@@ -50,11 +50,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     <div className="min-h-screen bg-[#0F172A]">
       {/* Header */}
       <header className="flex items-center justify-between p-6 border-b border-[#1E293B]">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-[#3B82F6] to-[#6D28D9] rounded-lg flex items-center justify-center">
-            <Mic className="w-5 h-5 text-white" />
-          </div>
-          <h1 className="text-xl font-semibold">AI Transcriptor</h1>
+        <div className="flex items-center">
+          <img src="/src/assets/Logo.svg" alt="AI Transcriptor" className="h-16 w-auto" />
         </div>
         
         <div className="flex items-center gap-4">
