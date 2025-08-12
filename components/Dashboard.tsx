@@ -66,7 +66,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           </Button>
           <Button
             onClick={() => onNavigate('live')}
-            className="bg-gradient-to-r from-[#3B82F6] to-[#6D28D9] hover:from-[#2563EB] hover:to-[#5B21B6] text-white"
+            className="bg-gradient-to-r from-[#4B5563] to-[#6D28D9] hover:from-[#374151] hover:to-[#5B21B6] text-white shadow-md"
           >
             Start Live Session
           </Button>
@@ -78,7 +78,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         {/* Main CTA Section */}
         <div className="text-center py-12 mb-12">
           <div className="mb-8">
-            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-[#3B82F6] to-[#6D28D9] rounded-full flex items-center justify-center shadow-lg">
+            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-white to-[#6D28D9] rounded-full flex items-center justify-center shadow-lg">
               <Mic className="w-12 h-12 text-white" />
             </div>
             <h2 className="text-3xl font-semibold mb-4">Start Your Live Transcription</h2>
@@ -90,7 +90,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <Button
             size="lg"
             onClick={() => onNavigate('live')}
-            className="bg-gradient-to-r from-[#3B82F6] to-[#6D28D9] hover:from-[#2563EB] hover:to-[#5B21B6] text-white text-lg px-8 py-4 h-auto"
+            className="bg-gradient-to-r from-[#4B5563] to-[#6D28D9] hover:from-[#374151] hover:to-[#5B21B6] text-white text-lg px-8 py-4 h-auto shadow-md"
           >
             <Mic className="w-6 h-6 mr-3" />
             Start Live Session

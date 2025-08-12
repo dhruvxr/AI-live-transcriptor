@@ -152,7 +152,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-[#3B82F6] to-[#6D28D9] rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-to-r from-white to-[#6D28D9] rounded-lg flex items-center justify-center">
               <Mic className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-xl font-semibold">Past Sessions</h1>
@@ -161,7 +161,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
         
         <Button
           onClick={() => onNavigate('live')}
-          className="bg-gradient-to-r from-[#3B82F6] to-[#6D28D9] hover:from-[#2563EB] hover:to-[#5B21B6] text-white"
+          className="bg-gradient-to-r from-[#4B5563] to-[#6D28D9] hover:from-[#374151] hover:to-[#5B21B6] text-white shadow-md"
         >
           <Mic className="w-4 h-4 mr-2" />
           New Session

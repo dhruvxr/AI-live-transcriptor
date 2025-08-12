@@ -55,7 +55,7 @@ export function Settings({ onNavigate }: SettingsProps) {
         
         <Button
           onClick={handleSave}
-          className="bg-gradient-to-r from-[#3B82F6] to-[#6D28D9] hover:from-[#2563EB] hover:to-[#5B21B6] text-white"
+          className="bg-gradient-to-r from-[#4B5563] to-[#6D28D9] hover:from-[#374151] hover:to-[#5B21B6] text-white shadow-md"
         >
           <Save className="w-4 h-4 mr-2" />
           Save Changes
