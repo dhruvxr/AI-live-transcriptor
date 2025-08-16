@@ -218,28 +218,67 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       const now = new Date();
       const cleanText = text.trim();
 
-      // Skip if this text is too similar to recent entries (prevent repetition)
-      const recentItems = transcript.slice(-3); // Check last 3 items
-      const isDuplicate = recentItems.some(item => {
-        const similarity = calculateSimilarity(cleanText.toLowerCase(), item.content.toLowerCase());
-        return similarity > 0.7; // Reduced threshold for more aggressive filtering
-      });
-
-      if (isDuplicate) {
-        console.log("Skipping duplicate final text:", cleanText);
+      // Enhanced duplicate detection
+      const recentItems = transcript.slice(-5); // Check last 5 items for more context
+      
+      // Check for exact duplicates first
+      const exactDuplicate = recentItems.some(item => 
+        item.content.toLowerCase() === cleanText.toLowerCase()
+      );
+      
+      if (exactDuplicate) {
+        console.log("Skipping exact duplicate:", cleanText);
         setCurrentSpeech("");
         return;
       }
 
-      // Additional check for repetitive patterns like "testing testing testing"
-      const words = cleanText.toLowerCase().split(' ');
+      // Check for high similarity duplicates
+      const similarityDuplicate = recentItems.some(item => {
+        const similarity = calculateSimilarity(cleanText.toLowerCase(), item.content.toLowerCase());
+        return similarity > 0.85; // Higher threshold for better accuracy
+      });
+
+      if (similarityDuplicate) {
+        console.log("Skipping similar duplicate:", cleanText);
+        setCurrentSpeech("");
+        return;
+      }
+
+      // Check for repetitive patterns (e.g., "testing testing testing")
+      const words = cleanText.toLowerCase().split(/\s+/);
       const uniqueWords = new Set(words);
       const repetitionRatio = words.length / uniqueWords.size;
       
-      if (repetitionRatio > 3) { // If same words repeat more than 3 times on average
-        console.log("Skipping repetitive text pattern:", cleanText);
+      if (repetitionRatio > 2.5 && words.length > 3) {
+        console.log("Skipping repetitive pattern:", cleanText);
         setCurrentSpeech("");
         return;
+      }
+
+      // Skip very short or common filler words when they appear alone
+      const fillerWords = ['um', 'uh', 'oh', 'ah', 'hmm', 'okay', 'ok', 'yes', 'no', 'yeah'];
+      if (words.length === 1 && fillerWords.includes(words[0])) {
+        console.log("Skipping filler word:", cleanText);
+        setCurrentSpeech("");
+        return;
+      }
+
+      // Check if this text is just a continuation/repetition of the last item
+      if (recentItems.length > 0) {
+        const lastItem = recentItems[recentItems.length - 1];
+        const timeDiff = now.getTime() - lastItem.timestamp.getTime();
+        
+        // If within 2 seconds and contains similar content, might be a continuation
+        if (timeDiff < 2000) {
+          const combinedText = lastItem.content.toLowerCase();
+          const overlap = findLongestCommonSubstring(combinedText, cleanText.toLowerCase());
+          
+          if (overlap.length > Math.min(combinedText.length, cleanText.length) * 0.6) {
+            console.log("Skipping likely continuation/repetition:", cleanText);
+            setCurrentSpeech("");
+            return;
+          }
+        }
       }
 
       // Check if this is a question using enhanced detection
@@ -256,7 +295,7 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
         questionConfidence: questionResult.confidence,
       };
 
-      // Add to transcript without merging to prevent repetition issues
+      // Add to transcript
       setTranscript((prev) => [...prev, transcriptItem]);
 
       // If it's a question and voice answers are enabled, generate AI response
@@ -270,7 +309,7 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           const aiResponseItem: TranscriptItem = {
             id: (Date.now() + 1).toString(),
             type: "answer",
-            speaker: "AI Assistant",
+            speaker: "GPT-4o",
             content: aiResponseResult.response,
             timestamp: new Date(),
             confidence: aiResponseResult.confidence,
@@ -297,6 +336,30 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     
     const editDistance = levenshteinDistance(longer, shorter);
     return (longer.length - editDistance) / longer.length;
+  };
+
+  // Helper function to find longest common substring
+  const findLongestCommonSubstring = (str1: string, str2: string): string => {
+    const m = str1.length;
+    const n = str2.length;
+    const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+    
+    let maxLength = 0;
+    let endPos = 0;
+    
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (str1[i - 1] === str2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+          if (dp[i][j] > maxLength) {
+            maxLength = dp[i][j];
+            endPos = i;
+          }
+        }
+      }
+    }
+    
+    return str1.substring(endPos - maxLength, endPos);
   };
 
   // Levenshtein distance calculation
@@ -503,8 +566,7 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           </h1>
           <p className="text-md text-[#94A3B8] mb-6">{error}</p>
           <p className="text-sm text-[#94A3B8] mb-6">
-            Please check your Azure configuration in the settings page. The
-            service might not be configured correctly.
+            Please check your speech service configuration in the settings page.
           </p>
           <div className="flex justify-center gap-4">
             <Button
@@ -597,10 +659,10 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
             onClick={() => setIsQuickQuestionOpen(true)}
             disabled={transcript.length === 0}
             className="border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
-            title="Ask a question about what was said"
+            title="Ask GPT-4o a question about what was said"
           >
             <HelpCircle className="w-4 h-4 mr-1" />
-            Ask AI
+            Ask GPT-4o
           </Button>
 
           <Button
@@ -627,19 +689,19 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
               </span>
             )}
             {isGeneratingAnswer && (
-              <span className="text-[#6D28D9] flex items-center gap-2">
+              <span className="text-[#10B981] flex items-center gap-2">
                 <div className="flex gap-1">
-                  <div className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce"></div>
+                  <div className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"></div>
                   <div
-                    className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce"
+                    className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"
                     style={{ animationDelay: "0.1s" }}
                   ></div>
                   <div
-                    className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce"
+                    className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"
                     style={{ animationDelay: "0.2s" }}
                   ></div>
                 </div>
-                Generating Answer...
+                GPT-4o Generating Answer...
               </span>
             )}
           </div>
@@ -673,7 +735,7 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
               {item.type === "speech" && (
                 <div className="group relative">
                   <div
-                    className="flex gap-3 cursor-pointer hover:bg-[#1E293B] p-3 rounded-lg transition-all duration-200 border border-transparent hover:border-[#334155]"
+                    className="flex gap-3 cursor-pointer hover:bg-[#1E293B]/80 p-3 rounded-lg transition-all duration-200 border border-transparent hover:border-[#334155] hover:shadow-lg"
                     onClick={() => {
                       setSelectedTranscriptForClarification(item);
                       setIsClarificationPanelOpen(true);
@@ -706,9 +768,10 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
                       </p>
                     </div>
 
-                    {/* Hover indicator */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <HelpCircle className="w-4 h-4 text-[#94A3B8]" />
+                    {/* Hover indicator with better styling */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center gap-1 text-[#10B981]">
+                      <span className="text-xs">Ask GPT-4o</span>
+                      <HelpCircle className="w-4 h-4" />
                     </div>
                   </div>
                 </div>
@@ -747,30 +810,37 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
               )}
 
               {item.type === "answer" && (
-                <Card className="bg-gradient-to-r from-[#581C87]/20 to-[#7C3AED]/20 border-[#6D28D9] ml-8 shadow-lg">
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-2">
-                      <Bot className="w-4 h-4 text-[#6D28D9] mt-1 flex-shrink-0" />
+                <Card className="bg-gradient-to-r from-[#10B981]/10 via-[#059669]/10 to-[#047857]/10 border-[#10B981] ml-8 shadow-xl backdrop-blur-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                        <Bot className="w-4 h-4 text-white" />
+                      </div>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-[#6D28D9]">
-                            AI Answer:
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-semibold text-[#10B981] text-sm">
+                            GPT-4o Assistant
                           </span>
+                          <Badge className="bg-[#10B981]/20 text-[#10B981] border-[#10B981]/30 text-xs">
+                            AI
+                          </Badge>
                           <span className="text-xs text-[#94A3B8]">
                             {formatTime(item.timestamp)}
                           </span>
                           {item.confidence && (
                             <Badge
                               variant="outline"
-                              className="text-xs border-[#6D28D9] text-[#6D28D9]"
+                              className="text-xs border-[#10B981]/40 text-[#10B981]"
                             >
                               {Math.round(item.confidence * 100)}% confidence
                             </Badge>
                           )}
                         </div>
-                        <p className="text-[#F8FAFC] leading-relaxed">
-                          {item.content}
-                        </p>
+                        <div className="bg-[#0F172A]/50 p-3 rounded-lg border border-[#10B981]/20">
+                          <p className="text-[#F8FAFC] leading-relaxed">
+                            {item.content}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -780,23 +850,32 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           ))}
 
           {isGeneratingAnswer && (
-            <Card className="bg-gradient-to-r from-[#581C87]/20 to-[#7C3AED]/20 border-[#6D28D9] ml-8 shadow-lg">
-              <CardContent className="p-3">
-                <div className="flex items-center gap-2">
-                  <Bot className="w-4 h-4 text-[#6D28D9] animate-pulse" />
-                  <span className="font-medium text-[#6D28D9]">
-                    AI is generating an answer...
-                  </span>
-                  <div className="flex gap-1">
-                    <div className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce"></div>
-                    <div
-                      className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce"
-                      style={{ animationDelay: "0.1s" }}
-                    ></div>
-                    <div
-                      className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    ></div>
+            <Card className="bg-gradient-to-r from-[#10B981]/10 via-[#059669]/10 to-[#047857]/10 border-[#10B981] ml-8 shadow-xl backdrop-blur-sm">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <Bot className="w-4 h-4 text-white animate-pulse" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-[#10B981]">
+                        GPT-4o is thinking...
+                      </span>
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-[#10B981] rounded-full animate-bounce"></div>
+                        <div
+                          className="w-2 h-2 bg-[#10B981] rounded-full animate-bounce"
+                          style={{ animationDelay: "0.1s" }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-[#10B981] rounded-full animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        ></div>
+                      </div>
+                    </div>
+                    <p className="text-[#94A3B8] text-sm mt-1">
+                      Analyzing your question and generating a response...
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -810,39 +889,68 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
         open={isClarificationPanelOpen}
         onOpenChange={setIsClarificationPanelOpen}
       >
-        <DialogContent className="bg-[#1E293B] border-[#334155] text-white">
+        <DialogContent className="bg-[#1E293B] border-[#334155] text-white max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Clarify Transcript</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="w-5 h-5 text-[#10B981]" />
+              Ask GPT-4o for Clarification
+            </DialogTitle>
             <DialogDescription className="text-[#94A3B8]">
-              Ask a question about the selected text to get more details.
+              Ask GPT-4o a question about the selected text to get more details or clarification.
             </DialogDescription>
           </DialogHeader>
           <div className="my-4">
-            <p className="text-sm font-semibold mb-2">Selected Text:</p>
-            <blockquote className="border-l-2 border-[#3B82F6] pl-3 italic text-[#F8FAFC]">
-              {selectedTranscriptForClarification?.content}
+            <p className="text-sm font-semibold mb-2 text-[#F8FAFC]">Selected Text:</p>
+            <blockquote className="border-l-4 border-[#10B981] pl-4 py-2 bg-[#0F172A]/50 rounded-r italic text-[#F8FAFC]">
+              "{selectedTranscriptForClarification?.content}"
             </blockquote>
           </div>
           <div className="space-y-2">
-            <Input
-              placeholder="e.g., 'Explain this in simpler terms.'"
+            <label className="text-sm font-medium text-[#F8FAFC]">Your Question:</label>
+            <Textarea
+              placeholder="e.g., 'Explain this in simpler terms', 'What does this mean?', 'Can you elaborate on this?'"
               value={clarificationQuestion}
               onChange={(e) => setClarificationQuestion(e.target.value)}
-              className="bg-[#0F172A] border-[#334155] text-white"
+              className="bg-[#0F172A] border-[#334155] text-white resize-none h-20"
+              rows={3}
             />
           </div>
           {clarificationAnswer && (
-            <div className="mt-4 p-3 bg-[#0F172A] rounded-md max-h-48 overflow-y-auto">
-              <p className="text-sm">{clarificationAnswer}</p>
+            <div className="mt-4">
+              <label className="text-sm font-medium text-[#F8FAFC] mb-2 block">GPT-4o Response:</label>
+              <div className="p-4 bg-[#0F172A]/50 rounded-lg border border-[#10B981]/20 max-h-64 overflow-y-auto">
+                <p className="text-sm leading-relaxed text-[#F8FAFC]">{clarificationAnswer}</p>
+              </div>
             </div>
           )}
           <DialogFooter>
             <Button
-              onClick={handleClarificationRequest}
-              disabled={isGeneratingClarification}
-              className="bg-blue-500 hover:bg-blue-600"
+              variant="outline"
+              onClick={() => {
+                setIsClarificationPanelOpen(false);
+                setClarificationQuestion("");
+                setClarificationAnswer("");
+              }}
+              className="border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
             >
-              {isGeneratingClarification ? "Generating..." : "Ask"}
+              Cancel
+            </Button>
+            <Button
+              onClick={handleClarificationRequest}
+              disabled={isGeneratingClarification || !clarificationQuestion.trim()}
+              className="bg-[#10B981] hover:bg-[#059669]"
+            >
+              {isGeneratingClarification ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  GPT-4o Thinking...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Bot className="w-4 h-4" />
+                  Ask GPT-4o
+                </div>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -850,14 +958,16 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
 
       {/* Quick Question Dialog */}
       <Dialog open={isQuickQuestionOpen} onOpenChange={setIsQuickQuestionOpen}>
-        <DialogContent className="bg-[#1E293B] border-[#334155] text-white">
+        <DialogContent className="bg-[#1E293B] border-[#334155] text-white max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-[#3B82F6]" />
-              Ask AI about the conversation
+              <div className="w-6 h-6 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center">
+                <Bot className="w-3 h-3 text-white" />
+              </div>
+              Ask GPT-4o about the conversation
             </DialogTitle>
             <DialogDescription className="text-[#94A3B8]">
-              Ask a question about what was recently discussed or request
+              Ask GPT-4o a question about what was recently discussed or request
               clarification on any terms mentioned.
             </DialogDescription>
           </DialogHeader>
@@ -865,29 +975,29 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-[#F8FAFC] mb-2 block">
-                Your Question
+                Your Question for GPT-4o
               </label>
               <Textarea
-                placeholder="e.g., 'What did I mean when I said...?' or 'Can you explain the term...' or 'Summarize what we discussed about...'"
+                placeholder="e.g., 'What did I mean when I said...?', 'Can you explain the term...?', 'Summarize what we discussed about...', 'What are the key points from our conversation?'"
                 value={quickQuestion}
                 onChange={(e) => setQuickQuestion(e.target.value)}
-                className="bg-[#0F172A] border-[#334155] text-white resize-none h-20"
-                rows={3}
+                className="bg-[#0F172A] border-[#334155] text-white resize-none h-24"
+                rows={4}
               />
             </div>
 
             {/* Recent context preview */}
             {transcript.length > 0 && (
               <div className="text-xs text-[#94A3B8]">
-                <p className="font-medium mb-1">
+                <p className="font-medium mb-2 text-[#F8FAFC]">
                   Recent context (last few items):
                 </p>
-                <div className="bg-[#0F172A] p-2 rounded border border-[#334155] max-h-20 overflow-y-auto">
+                <div className="bg-[#0F172A]/50 p-3 rounded border border-[#334155]/50 max-h-24 overflow-y-auto">
                   {transcript.slice(-3).map((item, index) => (
-                    <p key={index} className="mb-1">
-                      <span className="font-medium">{item.speaker}:</span>{" "}
-                      {item.content.substring(0, 100)}
-                      {item.content.length > 100 && "..."}
+                    <p key={index} className="mb-1 text-[#94A3B8]">
+                      <span className="font-medium text-[#F8FAFC]">{item.speaker}:</span>{" "}
+                      {item.content.substring(0, 120)}
+                      {item.content.length > 120 && "..."}
                     </p>
                   ))}
                 </div>
@@ -896,11 +1006,14 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
 
             {quickAnswer && (
               <div>
-                <label className="text-sm font-medium text-[#F8FAFC] mb-2 block">
-                  AI Response
+                <label className="text-sm font-medium text-[#F8FAFC] mb-2 flex items-center gap-2">
+                  <div className="w-4 h-4 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center">
+                    <Bot className="w-2 h-2 text-white" />
+                  </div>
+                  GPT-4o Response
                 </label>
-                <div className="bg-[#0F172A] p-3 rounded border border-[#334155] max-h-48 overflow-y-auto">
-                  <p className="text-sm leading-relaxed">{quickAnswer}</p>
+                <div className="bg-[#0F172A]/50 p-4 rounded-lg border border-[#10B981]/20 max-h-64 overflow-y-auto">
+                  <p className="text-sm leading-relaxed text-[#F8FAFC]">{quickAnswer}</p>
                 </div>
               </div>
             )}
@@ -921,17 +1034,17 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
             <Button
               onClick={handleQuickQuestion}
               disabled={isGeneratingQuickAnswer || !quickQuestion.trim()}
-              className="bg-[#3B82F6] hover:bg-[#2563EB]"
+              className="bg-[#10B981] hover:bg-[#059669]"
             >
               {isGeneratingQuickAnswer ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Thinking...
+                  GPT-4o Thinking...
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <Send className="w-4 h-4" />
-                  Ask
+                  Ask GPT-4o
                 </div>
               )}
             </Button>

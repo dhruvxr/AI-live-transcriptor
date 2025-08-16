@@ -147,16 +147,14 @@ class AzureSpeechService {
     this.recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
 
     this.recognizer.recognizing = (_: any, e: any) => {
-      onResult({
-        text: e.result.text,
-        confidence: 0.8, // Intermediate results have lower confidence
-        offset: e.result.offset,
-        duration: e.result.duration,
-      });
+      // Log interim results but don't process them to avoid duplicates
+      console.log("🔄 Interim result:", e.result.text);
+      // Don't call onResult for interim results to prevent duplicates
     };
 
     this.recognizer.recognized = (_: any, e: any) => {
       if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
+        console.log("✅ Final result:", e.result.text);
         onResult({
           text: e.result.text,
           confidence: 0.95, // Final results have higher confidence
@@ -219,7 +217,7 @@ class AzureSpeechService {
       const recognition = new SpeechRecognition();
 
       recognition.continuous = true;
-      recognition.interimResults = true;
+      recognition.interimResults = false; // Only get final results to avoid duplicates
       recognition.lang = this.config?.language || "en-US";
       recognition.maxAlternatives = 1;
 
@@ -233,8 +231,9 @@ class AzureSpeechService {
           const result = event.results[i];
           const text = result[0].transcript;
 
-          if (text.trim()) {
-            // Only process non-empty results
+          // Only process final results (when interimResults is false, all results are final)
+          if (text.trim() && result.isFinal !== false) {
+            console.log("✅ Web Speech final result:", text);
             onResult({
               text: text,
               confidence: result[0].confidence || 0.8,

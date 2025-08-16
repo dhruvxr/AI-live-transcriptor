@@ -46,21 +46,29 @@ class QuestionDetectionService {
    * Detect questions in the given text using pattern matching and NLP
    */
   public detectQuestions(text: string, context: string = ""): Question[] {
+    console.log("🔍 Detecting questions in text:", text);
     const questions: Question[] = [];
     const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+    
+    console.log("📝 Split into sentences:", sentences);
 
     for (const sentence of sentences) {
       const trimmed = sentence.trim();
       if (this.isQuestion(trimmed)) {
+        const questionText = trimmed + (trimmed.endsWith('?') ? '' : '?');
+        console.log("❓ Found question:", questionText);
         questions.push({
-          text: trimmed + "?",
+          text: questionText,
           timestamp: new Date().toISOString(),
           confidence: this.calculateQuestionConfidence(trimmed),
           context: context,
         });
+      } else {
+        console.log("❌ Not a question:", trimmed);
       }
     }
 
+    console.log("🎯 Total questions detected:", questions.length);
     return questions;
   }
 
