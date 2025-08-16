@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ArrowLeft, Search, Calendar, Clock, Play, Download, Trash2, Mic, Filter } from 'lucide-react';
+import { getAllSessions, deleteSession } from '../src/services/dataStorageService';
 
 type NavigateFunction = (page: 'dashboard' | 'live' | 'settings' | 'sessions' | 'session-detail', sessionId?: string) => void;
 
@@ -18,87 +19,63 @@ interface Session {
   date: string;
   time: string;
   duration: string;
-  type: 'lecture' | 'meeting' | 'event';
+  type: 'lecture' | 'meeting' | 'interview' | 'other';
   summary: string;
   questionsCount: number;
   wordsCount: number;
 }
 
-const allSessions: Session[] = [
-  {
-    id: '1',
-    title: 'Lecture on Biology - Cellular Structure',
-    date: '2025-08-06',
-    time: '14:30',
-    duration: '1h 45m',
-    type: 'lecture',
-    summary: 'Comprehensive discussion on cellular structure and function, covering organelles, membrane dynamics, and cellular processes...',
-    questionsCount: 12,
-    wordsCount: 4250
-  },
-  {
-    id: '2',
-    title: 'Team Meeting - Q3 Planning',
-    date: '2025-08-05',
-    time: '10:00',
-    duration: '2h 15m',
-    type: 'meeting',
-    summary: 'Strategic planning session for Q3 objectives, discussing budget allocation, team goals, and project timelines...',
-    questionsCount: 8,
-    wordsCount: 6800
-  },
-  {
-    id: '3',
-    title: 'Conference Keynote - Future of AI',
-    date: '2025-08-04',
-    time: '09:00',
-    duration: '45m',
-    type: 'event',
-    summary: 'Keynote presentation on artificial intelligence trends, machine learning applications, and future developments...',
-    questionsCount: 5,
-    wordsCount: 2100
-  },
-  {
-    id: '4',
-    title: 'AI Ethics Discussion',
-    date: '2025-08-03',
-    time: '16:20',
-    duration: '1h 30m',
-    type: 'lecture',
-    summary: 'In-depth discussion on ethical considerations in AI development, bias mitigation, and responsible AI practices...',
-    questionsCount: 15,
-    wordsCount: 3600
-  },
-  {
-    id: '5',
-    title: 'Client Presentation - Project Alpha',
-    date: '2025-08-02',
-    time: '11:15',
-    duration: '1h 00m',
-    type: 'meeting',
-    summary: 'Client presentation covering project progress, deliverables, and upcoming milestones for Project Alpha...',
-    questionsCount: 6,
-    wordsCount: 2450
-  },
-  {
-    id: '6',
-    title: 'Workshop - Machine Learning Basics',
-    date: '2025-08-01',
-    time: '13:45',
-    duration: '3h 20m',
-    type: 'event',
-    summary: 'Hands-on workshop introducing machine learning concepts, algorithms, and practical applications...',
-    questionsCount: 22,
-    wordsCount: 8900
-  }
-];
-
 export function PastSessions({ onNavigate }: PastSessionsProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('date-desc');
+  const [sessions, setSessions] = useState<Session[]>([]);
 
-  const filteredSessions = allSessions
+  useEffect(() => {
+    // Load sessions from storage on component mount
+    const loadSessions = () => {
+      const storedSessions = getAllSessions();
+      // Convert TranscriptionSession to Session format for UI compatibility
+      const formattedSessions = storedSessions.map(session => ({
+        id: session.id,
+        title: session.title,
+        date: session.date,
+        time: session.startTime,
+        duration: session.duration,
+        type: session.type === 'other' ? 'lecture' : session.type, // Map 'other' to 'lecture' for UI
+        summary: session.summary || 'No summary available',
+        questionsCount: session.questionsCount,
+        wordsCount: session.wordsCount
+      }));
+      setSessions(formattedSessions);
+    };
+
+    loadSessions();
+  }, []);
+
+  const handleDeleteSession = async (sessionId: string) => {
+    if (window.confirm('Are you sure you want to delete this session?')) {
+      const success = deleteSession(sessionId);
+      if (success) {
+        // Refresh the sessions list
+        const storedSessions = getAllSessions();
+        const formattedSessions = storedSessions.map(session => ({
+          id: session.id,
+          title: session.title,
+          date: session.date,
+          time: session.startTime,
+          duration: session.duration,
+          type: session.type === 'other' ? 'lecture' : session.type,
+          summary: session.summary || 'No summary available',
+          questionsCount: session.questionsCount,
+          wordsCount: session.wordsCount
+        }));
+        setSessions(formattedSessions);
+      }
+    }
+  };
+
+  const filteredSessions = sessions
     .filter(session => {
       const matchesSearch = session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           session.summary.toLowerCase().includes(searchQuery.toLowerCase());
@@ -124,7 +101,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
     switch (type) {
       case 'lecture': return '🎓';
       case 'meeting': return '🏢';
-      case 'event': return '📅';
+      case 'interview': return '🎤';
       default: return '📄';
     }
   };
@@ -133,7 +110,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
     switch (type) {
       case 'lecture': return 'bg-blue-500';
       case 'meeting': return 'bg-green-500';
-      case 'event': return 'bg-purple-500';
+      case 'interview': return 'bg-purple-500';
       default: return 'bg-gray-500';
     }
   };
@@ -191,7 +168,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
                 <SelectItem value="all" className="text-[#F8FAFC] focus:bg-[#334155]">All Types</SelectItem>
                 <SelectItem value="lecture" className="text-[#F8FAFC] focus:bg-[#334155]">🎓 Lectures</SelectItem>
                 <SelectItem value="meeting" className="text-[#F8FAFC] focus:bg-[#334155]">🏢 Meetings</SelectItem>
-                <SelectItem value="event" className="text-[#F8FAFC] focus:bg-[#334155]">📅 Events</SelectItem>
+                <SelectItem value="interview" className="text-[#F8FAFC] focus:bg-[#334155]">🎤 Interviews</SelectItem>
               </SelectContent>
             </Select>
 
@@ -212,7 +189,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
 
       {/* Results Summary */}
       <div className="px-6 py-3 text-sm text-[#94A3B8]">
-        Showing {filteredSessions.length} of {allSessions.length} sessions
+        Showing {filteredSessions.length} of {sessions.length} sessions
       </div>
 
       {/* Sessions List */}
@@ -261,6 +238,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
                       size="sm"
                       variant="ghost"
                       className="text-red-400 hover:text-red-300 hover:bg-[#334155]"
+                      onClick={() => handleDeleteSession(session.id)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

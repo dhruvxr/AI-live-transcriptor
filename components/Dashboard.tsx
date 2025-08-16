@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Mic, FileText, Settings, BarChart3, Clock, Zap } from "lucide-react";
+import { getAllSessions, getSessionStats } from "../src/services/dataStorageService";
 
 type NavigateFunction = (
   page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
@@ -13,37 +15,39 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
-  const stats = [
-    { label: "Total Sessions", value: "12", icon: FileText },
-    { label: "Hours Transcribed", value: "45.5", icon: Clock },
-    { label: "Words Processed", value: "125,430", icon: BarChart3 },
-  ];
+  const [stats, setStats] = useState({
+    totalSessions: 0,
+    totalHours: 0,
+    totalWords: 0
+  });
+  const [recentSessions, setRecentSessions] = useState<any[]>([]);
 
-  const recentSessions = [
-    {
-      id: "1",
-      title: "Biology Lecture - Cell Structure",
-      date: "2025-08-06",
-      duration: "1h 45m",
-      type: "lecture",
-      wordsCount: 4250,
-    },
-    {
-      id: "2",
-      title: "Team Meeting - Project Review",
-      date: "2025-08-05",
-      duration: "45m",
-      type: "meeting",
-      wordsCount: 2800,
-    },
-    {
-      id: "3",
-      title: "Client Interview",
-      date: "2025-08-04",
-      duration: "30m",
-      type: "interview",
-      wordsCount: 1950,
-    },
+  useEffect(() => {
+    // Load stats and recent sessions from storage
+    const sessionStats = getSessionStats();
+    setStats({
+      totalSessions: sessionStats.totalSessions,
+      totalHours: sessionStats.totalHours,
+      totalWords: sessionStats.totalWords
+    });
+
+    // Get the 3 most recent sessions
+    const allSessions = getAllSessions();
+    const recent = allSessions.slice(0, 3).map(session => ({
+      id: session.id,
+      title: session.title,
+      date: session.date,
+      duration: session.duration,
+      type: session.type,
+      wordsCount: session.wordsCount,
+    }));
+    setRecentSessions(recent);
+  }, []);
+
+  const statsDisplay = [
+    { label: "Total Sessions", value: stats.totalSessions.toString(), icon: FileText },
+    { label: "Hours Transcribed", value: stats.totalHours.toString(), icon: Clock },
+    { label: "Words Processed", value: stats.totalWords.toLocaleString(), icon: BarChart3 },
   ];
 
   return (
@@ -146,7 +150,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {stats.map((stat, index) => (
+          {statsDisplay.map((stat, index) => (
             <Card key={index} className="bg-[#1E293B] border-[#334155]">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -179,37 +183,55 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentSessions.map((session) => (
-              <div
-                key={session.id}
-                className="flex items-center justify-between p-4 bg-[#0F172A] rounded-lg border border-[#334155] hover:bg-[#1E293B]/50 cursor-pointer transition-colors"
-                onClick={() => onNavigate("session-detail", session.id)}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-[#4B5563]/50 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-[#F8FAFC]" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-[#F8FAFC]">
-                      {session.title}
-                    </h4>
-                    <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
-                      <span>{session.date}</span>
-                      <span>•</span>
-                      <span>{session.duration}</span>
-                      <span>•</span>
-                      <span>{session.wordsCount.toLocaleString()} words</span>
+            {recentSessions.length > 0 ? (
+              recentSessions.map((session) => (
+                <div
+                  key={session.id}
+                  className="flex items-center justify-between p-4 bg-[#0F172A] rounded-lg border border-[#334155] hover:bg-[#1E293B]/50 cursor-pointer transition-colors"
+                  onClick={() => onNavigate("session-detail", session.id)}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-[#4B5563]/50 rounded-lg flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-[#F8FAFC]" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-[#F8FAFC]">
+                        {session.title}
+                      </h4>
+                      <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
+                        <span>{session.date}</span>
+                        <span>•</span>
+                        <span>{session.duration}</span>
+                        <span>•</span>
+                        <span>{session.wordsCount.toLocaleString()} words</span>
+                      </div>
                     </div>
                   </div>
+                  <Badge
+                    variant="secondary"
+                    className="bg-[#4B5563]/30 text-[#F8FAFC] hover:bg-[#4B5563]/40"
+                  >
+                    {session.type}
+                  </Badge>
                 </div>
-                <Badge
-                  variant="secondary"
-                  className="bg-[#4B5563]/30 text-[#F8FAFC] hover:bg-[#4B5563]/40"
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-[#334155] rounded-full flex items-center justify-center">
+                  <FileText className="w-8 h-8 text-[#94A3B8]" />
+                </div>
+                <h3 className="text-[#F8FAFC] font-medium mb-2">No sessions yet</h3>
+                <p className="text-[#94A3B8] mb-4">Start your first transcription session to see it here</p>
+                <Button
+                  onClick={() => onNavigate("live")}
+                  size="sm"
+                  className="bg-gradient-to-r from-[#4B5563] to-[#6D28D9] hover:from-[#374151] hover:to-[#5B21B6] text-white"
                 >
-                  {session.type}
-                </Badge>
+                  <Mic className="w-4 h-4 mr-2" />
+                  Start Recording
+                </Button>
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
       </main>

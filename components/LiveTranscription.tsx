@@ -35,9 +35,7 @@ import {
   detectQuestionWithConfidence,
   generateQuestionResponse,
 } from "../src/services/questionDetectionService";
-import {
-  createSession,
-} from "../src/services/dataStorageService";
+import { createSession, updateSession } from "../src/services/dataStorageService";
 import {
   downloadAsText,
   downloadAsPdf,
@@ -76,6 +74,7 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
   const [currentSpeech, setCurrentSpeech] = useState("");
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessionTitle, setSessionTitle] = useState("");
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
 
   // Recording duration tracking
   const [currentRecordingTime, setCurrentRecordingTime] = useState<string>("");
@@ -220,12 +219,12 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
 
       // Enhanced duplicate detection
       const recentItems = transcript.slice(-5); // Check last 5 items for more context
-      
+
       // Check for exact duplicates first
-      const exactDuplicate = recentItems.some(item => 
-        item.content.toLowerCase() === cleanText.toLowerCase()
+      const exactDuplicate = recentItems.some(
+        (item) => item.content.toLowerCase() === cleanText.toLowerCase()
       );
-      
+
       if (exactDuplicate) {
         console.log("Skipping exact duplicate:", cleanText);
         setCurrentSpeech("");
@@ -233,8 +232,11 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       }
 
       // Check for high similarity duplicates
-      const similarityDuplicate = recentItems.some(item => {
-        const similarity = calculateSimilarity(cleanText.toLowerCase(), item.content.toLowerCase());
+      const similarityDuplicate = recentItems.some((item) => {
+        const similarity = calculateSimilarity(
+          cleanText.toLowerCase(),
+          item.content.toLowerCase()
+        );
         return similarity > 0.85; // Higher threshold for better accuracy
       });
 
@@ -248,7 +250,7 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       const words = cleanText.toLowerCase().split(/\s+/);
       const uniqueWords = new Set(words);
       const repetitionRatio = words.length / uniqueWords.size;
-      
+
       if (repetitionRatio > 2.5 && words.length > 3) {
         console.log("Skipping repetitive pattern:", cleanText);
         setCurrentSpeech("");
@@ -256,7 +258,18 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       }
 
       // Skip very short or common filler words when they appear alone
-      const fillerWords = ['um', 'uh', 'oh', 'ah', 'hmm', 'okay', 'ok', 'yes', 'no', 'yeah'];
+      const fillerWords = [
+        "um",
+        "uh",
+        "oh",
+        "ah",
+        "hmm",
+        "okay",
+        "ok",
+        "yes",
+        "no",
+        "yeah",
+      ];
       if (words.length === 1 && fillerWords.includes(words[0])) {
         console.log("Skipping filler word:", cleanText);
         setCurrentSpeech("");
@@ -267,13 +280,19 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       if (recentItems.length > 0) {
         const lastItem = recentItems[recentItems.length - 1];
         const timeDiff = now.getTime() - lastItem.timestamp.getTime();
-        
+
         // If within 2 seconds and contains similar content, might be a continuation
         if (timeDiff < 2000) {
           const combinedText = lastItem.content.toLowerCase();
-          const overlap = findLongestCommonSubstring(combinedText, cleanText.toLowerCase());
-          
-          if (overlap.length > Math.min(combinedText.length, cleanText.length) * 0.6) {
+          const overlap = findLongestCommonSubstring(
+            combinedText,
+            cleanText.toLowerCase()
+          );
+
+          if (
+            overlap.length >
+            Math.min(combinedText.length, cleanText.length) * 0.6
+          ) {
             console.log("Skipping likely continuation/repetition:", cleanText);
             setCurrentSpeech("");
             return;
@@ -331,9 +350,9 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
   const calculateSimilarity = (str1: string, str2: string): number => {
     const longer = str1.length > str2.length ? str1 : str2;
     const shorter = str1.length > str2.length ? str2 : str1;
-    
+
     if (longer.length === 0) return 1.0;
-    
+
     const editDistance = levenshteinDistance(longer, shorter);
     return (longer.length - editDistance) / longer.length;
   };
@@ -342,11 +361,13 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
   const findLongestCommonSubstring = (str1: string, str2: string): string => {
     const m = str1.length;
     const n = str2.length;
-    const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
-    
+    const dp: number[][] = Array(m + 1)
+      .fill(null)
+      .map(() => Array(n + 1).fill(0));
+
     let maxLength = 0;
     let endPos = 0;
-    
+
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {
         if (str1[i - 1] === str2[j - 1]) {
@@ -358,22 +379,22 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
         }
       }
     }
-    
+
     return str1.substring(endPos - maxLength, endPos);
   };
 
   // Levenshtein distance calculation
   const levenshteinDistance = (str1: string, str2: string): number => {
     const matrix = [];
-    
+
     for (let i = 0; i <= str2.length; i++) {
       matrix[i] = [i];
     }
-    
+
     for (let j = 0; j <= str1.length; j++) {
       matrix[0][j] = j;
     }
-    
+
     for (let i = 1; i <= str2.length; i++) {
       for (let j = 1; j <= str1.length; j++) {
         if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
@@ -387,7 +408,7 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
         }
       }
     }
-    
+
     return matrix[str2.length][str1.length];
   };
 
@@ -410,6 +431,7 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     setTranscript([]);
     setIsRecording(true);
     setIsPaused(false);
+    setSessionStartTime(new Date());
     setCurrentRecordingTime(
       new Date().toLocaleTimeString([], {
         hour: "2-digit",
@@ -449,18 +471,50 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     // Save the session if we have content
     if (currentSessionId && transcript.length > 0) {
       try {
+        // Calculate session duration
+        const endTime = new Date();
+        const startTimeObj = sessionStartTime || new Date();
+        const durationMs = endTime.getTime() - startTimeObj.getTime();
+        const durationMinutes = Math.round(durationMs / 60000);
+        const durationHours = Math.floor(durationMinutes / 60);
+        const remainingMinutes = durationMinutes % 60;
+        const durationString = durationHours > 0 
+          ? `${durationHours}h ${remainingMinutes}m`
+          : `${remainingMinutes}m`;
+
+        // Convert transcript items to the format expected by dataStorageService
+        const transcriptData = transcript.map(item => ({
+          id: item.id,
+          type: item.type === "answer" ? "ai_response" as const : 
+                item.type === "question" ? "question" as const : "speech" as const,
+          content: item.content,
+          timestamp: item.timestamp.toISOString(),
+          confidence: item.confidence,
+          speaker: item.speaker,
+        }));
+
         // Update the session with the transcript data and final duration
-        // This would typically update the session in your data storage
-        console.log(
-          "Session completed with transcript items:",
-          transcript.length
-        );
+        const updatedSession = updateSession(currentSessionId, {
+          endTime: endTime.toLocaleTimeString(),
+          duration: durationString,
+          transcript: transcriptData,
+          questionsCount: transcript.filter(item => item.type === "question").length,
+          wordsCount: transcript.reduce((count, item) => count + item.content.split(" ").length, 0),
+          summary: transcript.length > 0 ? `Session with ${transcript.length} transcript items` : "Empty session"
+        });
+
+        if (updatedSession) {
+          console.log("Session saved successfully:", updatedSession.title);
+          // Optionally navigate to the session detail page
+          // onNavigate('session-detail', currentSessionId);
+        }
       } catch (error) {
         console.error("Error saving session:", error);
       }
     }
 
     setCurrentSessionId(null);
+    setSessionStartTime(null);
   };
 
   const togglePauseResume = () => {
@@ -494,9 +548,9 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
 
     const transcriptData: TranscriptData = {
       title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
-      content: transcript.map(item => 
-        `[${formatTime(item.timestamp)}] ${item.content}`
-      ).join('\n'),
+      content: transcript
+        .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
+        .join("\n"),
       timestamp: new Date().toISOString(),
       duration: calculateDuration(),
     };
@@ -512,9 +566,9 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
 
     const transcriptData: TranscriptData = {
       title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
-      content: transcript.map(item => 
-        `[${formatTime(item.timestamp)}] ${item.content}`
-      ).join('\n'),
+      content: transcript
+        .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
+        .join("\n"),
       timestamp: new Date().toISOString(),
       duration: calculateDuration(),
     };
@@ -530,9 +584,9 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
 
     const transcriptData: TranscriptData = {
       title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
-      content: transcript.map(item => 
-        `[${formatTime(item.timestamp)}] ${item.content}`
-      ).join('\n'),
+      content: transcript
+        .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
+        .join("\n"),
       timestamp: new Date().toISOString(),
       duration: calculateDuration(),
     };
@@ -896,17 +950,22 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
               Ask GPT-4o for Clarification
             </DialogTitle>
             <DialogDescription className="text-[#94A3B8]">
-              Ask GPT-4o a question about the selected text to get more details or clarification.
+              Ask GPT-4o a question about the selected text to get more details
+              or clarification.
             </DialogDescription>
           </DialogHeader>
           <div className="my-4">
-            <p className="text-sm font-semibold mb-2 text-[#F8FAFC]">Selected Text:</p>
+            <p className="text-sm font-semibold mb-2 text-[#F8FAFC]">
+              Selected Text:
+            </p>
             <blockquote className="border-l-4 border-[#10B981] pl-4 py-2 bg-[#0F172A]/50 rounded-r italic text-[#F8FAFC]">
               "{selectedTranscriptForClarification?.content}"
             </blockquote>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-[#F8FAFC]">Your Question:</label>
+            <label className="text-sm font-medium text-[#F8FAFC]">
+              Your Question:
+            </label>
             <Textarea
               placeholder="e.g., 'Explain this in simpler terms', 'What does this mean?', 'Can you elaborate on this?'"
               value={clarificationQuestion}
@@ -917,9 +976,13 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           </div>
           {clarificationAnswer && (
             <div className="mt-4">
-              <label className="text-sm font-medium text-[#F8FAFC] mb-2 block">GPT-4o Response:</label>
+              <label className="text-sm font-medium text-[#F8FAFC] mb-2 block">
+                GPT-4o Response:
+              </label>
               <div className="p-4 bg-[#0F172A]/50 rounded-lg border border-[#10B981]/20 max-h-64 overflow-y-auto">
-                <p className="text-sm leading-relaxed text-[#F8FAFC]">{clarificationAnswer}</p>
+                <p className="text-sm leading-relaxed text-[#F8FAFC]">
+                  {clarificationAnswer}
+                </p>
               </div>
             </div>
           )}
@@ -937,7 +1000,9 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
             </Button>
             <Button
               onClick={handleClarificationRequest}
-              disabled={isGeneratingClarification || !clarificationQuestion.trim()}
+              disabled={
+                isGeneratingClarification || !clarificationQuestion.trim()
+              }
               className="bg-[#10B981] hover:bg-[#059669]"
             >
               {isGeneratingClarification ? (
@@ -995,7 +1060,9 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
                 <div className="bg-[#0F172A]/50 p-3 rounded border border-[#334155]/50 max-h-24 overflow-y-auto">
                   {transcript.slice(-3).map((item, index) => (
                     <p key={index} className="mb-1 text-[#94A3B8]">
-                      <span className="font-medium text-[#F8FAFC]">{item.speaker}:</span>{" "}
+                      <span className="font-medium text-[#F8FAFC]">
+                        {item.speaker}:
+                      </span>{" "}
                       {item.content.substring(0, 120)}
                       {item.content.length > 120 && "..."}
                     </p>
@@ -1013,7 +1080,9 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
                   GPT-4o Response
                 </label>
                 <div className="bg-[#0F172A]/50 p-4 rounded-lg border border-[#10B981]/20 max-h-64 overflow-y-auto">
-                  <p className="text-sm leading-relaxed text-[#F8FAFC]">{quickAnswer}</p>
+                  <p className="text-sm leading-relaxed text-[#F8FAFC]">
+                    {quickAnswer}
+                  </p>
                 </div>
               </div>
             )}

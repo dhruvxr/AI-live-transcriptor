@@ -49,13 +49,13 @@ class QuestionDetectionService {
     console.log("🔍 Detecting questions in text:", text);
     const questions: Question[] = [];
     const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
-    
+
     console.log("📝 Split into sentences:", sentences);
 
     for (const sentence of sentences) {
       const trimmed = sentence.trim();
       if (this.isQuestion(trimmed)) {
-        const questionText = trimmed + (trimmed.endsWith('?') ? '' : '?');
+        const questionText = trimmed + (trimmed.endsWith("?") ? "" : "?");
         console.log("❓ Found question:", questionText);
         questions.push({
           text: questionText,
