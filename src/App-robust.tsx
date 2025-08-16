@@ -1,0 +1,222 @@
+import { useState } from "react";
+
+// Simple fallback component if Dashboard fails to load
+function SimpleDashboard({ onNavigate }: { onNavigate: any }) {
+  return (
+    <div style={{ 
+      minHeight: '100vh', 
+      backgroundColor: '#0F172A', 
+      padding: '2rem',
+      color: 'white'
+    }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '2rem', textAlign: 'center' }}>
+          🎙️ AI Live Transcriptor
+        </h1>
+        
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+          gap: '1.5rem',
+          marginBottom: '3rem'
+        }}>
+          <div style={{ 
+            backgroundColor: '#1E293B', 
+            padding: '1.5rem', 
+            borderRadius: '8px',
+            border: '1px solid #334155'
+          }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Total Sessions</h3>
+            <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3B82F6' }}>12</p>
+          </div>
+          
+          <div style={{ 
+            backgroundColor: '#1E293B', 
+            padding: '1.5rem', 
+            borderRadius: '8px',
+            border: '1px solid #334155'
+          }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Hours Transcribed</h3>
+            <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10B981' }}>45.5</p>
+          </div>
+          
+          <div style={{ 
+            backgroundColor: '#1E293B', 
+            padding: '1.5rem', 
+            borderRadius: '8px',
+            border: '1px solid #334155'
+          }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Words Processed</h3>
+            <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#F59E0B' }}>125,430</p>
+          </div>
+        </div>
+        
+        <div style={{ textAlign: 'center' }}>
+          <button
+            onClick={() => onNavigate('live')}
+            style={{
+              backgroundColor: '#3B82F6',
+              color: 'white',
+              padding: '1rem 2rem',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              marginRight: '1rem'
+            }}
+          >
+            🎙️ Start Live Transcription
+          </button>
+          
+          <button
+            onClick={() => onNavigate('sessions')}
+            style={{
+              backgroundColor: '#6D28D9',
+              color: 'white',
+              padding: '1rem 2rem',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              marginRight: '1rem'
+            }}
+          >
+            📋 View Sessions
+          </button>
+          
+          <button
+            onClick={() => onNavigate('settings')}
+            style={{
+              backgroundColor: '#059669',
+              color: 'white',
+              padding: '1rem 2rem',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            ⚙️ Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Import components with error boundary
+let Dashboard, LiveTranscription, Settings, PastSessions, SessionDetail;
+
+try {
+  Dashboard = require("../components/Dashboard").Dashboard;
+} catch (e) {
+  console.warn("Dashboard component failed to load:", e);
+  Dashboard = SimpleDashboard;
+}
+
+try {
+  LiveTranscription = require("../components/LiveTranscription").LiveTranscription;
+} catch (e) {
+  console.warn("LiveTranscription component failed to load:", e);
+  LiveTranscription = () => <div style={{color: 'white', padding: '2rem'}}>LiveTranscription component failed to load</div>;
+}
+
+try {
+  Settings = require("../components/Settings").Settings;
+} catch (e) {
+  console.warn("Settings component failed to load:", e);
+  Settings = () => <div style={{color: 'white', padding: '2rem'}}>Settings component failed to load</div>;
+}
+
+try {
+  PastSessions = require("../components/PastSessions").PastSessions;
+} catch (e) {
+  console.warn("PastSessions component failed to load:", e);
+  PastSessions = () => <div style={{color: 'white', padding: '2rem'}}>PastSessions component failed to load</div>;
+}
+
+try {
+  SessionDetail = require("../components/SessionDetail").SessionDetail;
+} catch (e) {
+  console.warn("SessionDetail component failed to load:", e);
+  SessionDetail = () => <div style={{color: 'white', padding: '2rem'}}>SessionDetail component failed to load</div>;
+}
+
+type NavigateFunction = (
+  page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
+  sessionId?: string
+) => void;
+
+function App() {
+  const [currentPage, setCurrentPage] = useState<"dashboard" | "live" | "settings" | "sessions" | "session-detail">("dashboard");
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+
+  const navigate: NavigateFunction = (page, sessionId) => {
+    console.log(`Navigating to: ${page}`, sessionId ? `with sessionId: ${sessionId}` : '');
+    setCurrentPage(page);
+    if (sessionId) {
+      setSelectedSessionId(sessionId);
+    }
+  };
+
+  const renderCurrentPage = () => {
+    try {
+      switch (currentPage) {
+        case "dashboard":
+          return <Dashboard onNavigate={navigate} />;
+        case "live":
+          return <LiveTranscription onNavigate={navigate} />;
+        case "settings":
+          return <Settings onNavigate={navigate} />;
+        case "sessions":
+          return <PastSessions onNavigate={navigate} />;
+        case "session-detail":
+          return <SessionDetail onNavigate={navigate} sessionId={selectedSessionId} />;
+        default:
+          return <Dashboard onNavigate={navigate} />;
+      }
+    } catch (error) {
+      console.error("Error rendering page:", error);
+      return (
+        <div style={{ 
+          minHeight: '100vh', 
+          backgroundColor: '#0F172A', 
+          color: 'white', 
+          padding: '2rem',
+          textAlign: 'center'
+        }}>
+          <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>❌ Error Loading Page</h1>
+          <p style={{ marginBottom: '2rem' }}>Something went wrong while loading the {currentPage} page.</p>
+          <button
+            onClick={() => navigate('dashboard')}
+            style={{
+              backgroundColor: '#3B82F6',
+              color: 'white',
+              padding: '1rem 2rem',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            ← Back to Dashboard
+          </button>
+          <div style={{ marginTop: '2rem', textAlign: 'left', backgroundColor: '#1E293B', padding: '1rem', borderRadius: '8px' }}>
+            <strong>Error details:</strong>
+            <pre style={{ color: '#EF4444', fontSize: '0.9rem' }}>{String(error)}</pre>
+          </div>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0F172A]">
+      {renderCurrentPage()}
+    </div>
+  );
+}
+
+export default App;

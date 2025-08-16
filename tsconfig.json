@@ -22,11 +22,12 @@
     "esModuleInterop": true,
 
     /* Path Aliases */
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@components/*": ["./components/*"]
+      "@/*": ["src/*"],
+      "@components/*": ["components/*"]
     }
   },
-  "include": ["src", "components"],
+  "include": ["src", "components", "App.tsx", "vite-env.d.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
