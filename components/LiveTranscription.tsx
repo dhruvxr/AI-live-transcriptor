@@ -16,6 +16,17 @@ import {
   MessageSquare,
   ArrowLeft,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "./ui/dialog";
+import { Input } from "./ui/input";
+import { getAIResponseStream } from "../src/services/aiService";
+import { isQuestion } from "../src/services/questionDetectionService";
 
 type NavigateFunction = (
   page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
@@ -42,6 +53,19 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
   const [voiceAnswerEnabled, setVoiceAnswerEnabled] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [currentSpeech, setCurrentSpeech] = useState("");
+
+  // State for the clarification panel
+  const [
+    selectedTranscriptForClarification,
+    setSelectedTranscriptForClarification,
+  ] = useState<TranscriptItem | null>(null);
+  const [isClarificationPanelOpen, setIsClarificationPanelOpen] =
+    useState(false);
+  const [clarificationQuestion, setClarificationQuestion] = useState("");
+  const [clarificationAnswer, setClarificationAnswer] = useState("");
+  const [isGeneratingClarification, setIsGeneratingClarification] =
+    useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -49,31 +73,76 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [transcript]);
+  }, [transcript, currentSpeech]);
 
-  const handleTranscriptionUpdate = (text: string) => {
+  const handleClarificationRequest = async () => {
+    if (!selectedTranscriptForClarification || !clarificationQuestion) return;
+
+    setIsGeneratingClarification(true);
+    setClarificationAnswer("");
+
+    const prompt = `Based on the following text, please answer the user's question.
+    Text: "${selectedTranscriptForClarification.content}"
+    Question: "${clarificationQuestion}"`;
+
+    getAIResponseStream(
+      prompt,
+      (chunk) => {
+        setClarificationAnswer((prev) => prev + chunk);
+      },
+      () => {
+        setIsGeneratingClarification(false);
+      },
+      (error) => {
+        console.error("Error getting AI clarification:", error);
+        setClarificationAnswer(
+          "Sorry, I encountered an error while generating the answer."
+        );
+        setIsGeneratingClarification(false);
+      }
+    );
+  };
+
+  const handleTranscriptionUpdate = (text: string, isFinal: boolean) => {
     if (isPaused) return;
 
-    setTranscript((prev) => {
-      const lastItem = prev[prev.length - 1];
-      // This logic will update the content of the last speech item as new text comes in.
-      if (lastItem?.type === "speech" && lastItem.speaker === "Me") {
-        const updatedItem = { ...lastItem, content: text };
-        return [...prev.slice(0, -1), updatedItem];
-      } else {
-        // When a new utterance begins, create a new speech item.
-        return [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            type: "speech",
-            speaker: "Me",
-            content: text,
-            timestamp: new Date(),
-          },
-        ];
-      }
-    });
+    if (isFinal && text.trim()) {
+      const now = new Date();
+      setTranscript((prev) => {
+        const lastItem = prev.length > 0 ? prev[prev.length - 1] : null;
+
+        if (
+          lastItem &&
+          lastItem.type === "speech" &&
+          lastItem.speaker === "Me" &&
+          lastItem.timestamp.getMinutes() === now.getMinutes() &&
+          lastItem.timestamp.getHours() === now.getHours() &&
+          lastItem.timestamp.getFullYear() === now.getFullYear() &&
+          lastItem.timestamp.getMonth() === now.getMonth() &&
+          lastItem.timestamp.getDate() === now.getDate()
+        ) {
+          const updatedItem = {
+            ...lastItem,
+            content: lastItem.content + " " + text,
+          };
+          return [...prev.slice(0, -1), updatedItem];
+        } else {
+          return [
+            ...prev,
+            {
+              id: Date.now().toString(),
+              type: "speech",
+              speaker: "Me",
+              content: text,
+              timestamp: now,
+            },
+          ];
+        }
+      });
+      setCurrentSpeech("");
+    } else if (!isFinal) {
+      setCurrentSpeech(text);
+    }
   };
 
   const handleTranscriptionError = (errorMessage: string) => {
@@ -285,8 +354,16 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           {transcript.map((item) => (
             <div key={item.id} className="space-y-2">
               {item.type === "speech" && (
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center text-white text-sm font-medium">
+                <div
+                  className="flex gap-3 cursor-pointer hover:bg-[#1E293B] p-2 rounded-lg"
+                  onClick={() => {
+                    setSelectedTranscriptForClarification(item);
+                    setIsClarificationPanelOpen(true);
+                    setClarificationAnswer("");
+                    setClarificationQuestion("");
+                  }}
+                >
+                  <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                     {item.speaker?.charAt(0) || "S"}
                   </div>
                   <div className="flex-1">
@@ -369,6 +446,49 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           )}
         </div>
       </div>
+
+      {/* Clarification Dialog */}
+      <Dialog
+        open={isClarificationPanelOpen}
+        onOpenChange={setIsClarificationPanelOpen}
+      >
+        <DialogContent className="bg-[#1E293B] border-[#334155] text-white">
+          <DialogHeader>
+            <DialogTitle>Clarify Transcript</DialogTitle>
+            <DialogDescription className="text-[#94A3B8]">
+              Ask a question about the selected text to get more details.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="my-4">
+            <p className="text-sm font-semibold mb-2">Selected Text:</p>
+            <blockquote className="border-l-2 border-[#3B82F6] pl-3 italic text-[#F8FAFC]">
+              {selectedTranscriptForClarification?.content}
+            </blockquote>
+          </div>
+          <div className="space-y-2">
+            <Input
+              placeholder="e.g., 'Explain this in simpler terms.'"
+              value={clarificationQuestion}
+              onChange={(e) => setClarificationQuestion(e.target.value)}
+              className="bg-[#0F172A] border-[#334155] text-white"
+            />
+          </div>
+          {clarificationAnswer && (
+            <div className="mt-4 p-3 bg-[#0F172A] rounded-md max-h-48 overflow-y-auto">
+              <p className="text-sm">{clarificationAnswer}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              onClick={handleClarificationRequest}
+              disabled={isGeneratingClarification}
+              className="bg-blue-500 hover:bg-blue-600"
+            >
+              {isGeneratingClarification ? "Generating..." : "Ask"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Footer Controls */}
       <footer className="p-4 border-t border-[#1E293B] bg-[#0F172A]/95 backdrop-blur-sm">

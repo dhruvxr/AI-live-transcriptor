@@ -4,7 +4,7 @@ import { getAzureConfig } from "../config/azureConfig";
 let recognizer: sdk.SpeechRecognizer | null = null;
 
 export const startTranscription = (
-  onResult: (result: sdk.SpeechRecognitionResult) => void,
+  onResult: (text: string, isFinal: boolean) => void,
   onError: (error: string) => void
 ) => {
   getAzureConfig()
@@ -24,12 +24,14 @@ export const startTranscription = (
       recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
 
       recognizer.recognizing = (s, e) => {
-        onResult(e.result);
+        if (e.result.reason === sdk.ResultReason.RecognizingSpeech) {
+          onResult(e.result.text, false);
+        }
       };
 
       recognizer.recognized = (s, e) => {
         if (e.result.reason === sdk.ResultReason.RecognizedSpeech) {
-          onResult(e.result);
+          onResult(e.result.text, true);
         }
       };
 
