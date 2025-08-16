@@ -1,156 +1,188 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Firefox Microphone Test</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .test-container {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        button {
-            background: #3B82F6;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 10px;
-        }
-        button:hover {
-            background: #2563EB;
-        }
-        button:disabled {
-            background: #6B7280;
-            cursor: not-allowed;
-        }
-        .status {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .success { background: #D1FAE5; color: #065F46; }
-        .error { background: #FEE2E2; color: #991B1B; }
-        .info { background: #DBEAFE; color: #1E40AF; }
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .test-container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      button {
+        background: #3b82f6;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px;
+      }
+      button:hover {
+        background: #2563eb;
+      }
+      button:disabled {
+        background: #6b7280;
+        cursor: not-allowed;
+      }
+      .status {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background: #d1fae5;
+        color: #065f46;
+      }
+      .error {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .info {
+        background: #dbeafe;
+        color: #1e40af;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="test-container">
-        <h1>🦊 Firefox Microphone Permission Test</h1>
-        <p>This test verifies microphone permission handling in Firefox.</p>
-        
-        <div id="browser-info" class="status info">
-            <strong>Browser:</strong> <span id="browser-name"></span><br>
-            <strong>Web Speech API:</strong> <span id="web-speech"></span><br>
-            <strong>MediaDevices API:</strong> <span id="media-devices"></span>
-        </div>
+      <h1>🦊 Firefox Microphone Permission Test</h1>
+      <p>This test verifies microphone permission handling in Firefox.</p>
 
-        <button id="request-mic" onclick="requestMicrophone()">🎤 Request Microphone Permission</button>
-        <button id="test-speech" onclick="testSpeechRecognition()" disabled>🗣️ Test Speech Recognition</button>
-        
-        <div id="status"></div>
-        <div id="results"></div>
+      <div id="browser-info" class="status info">
+        <strong>Browser:</strong> <span id="browser-name"></span><br />
+        <strong>Web Speech API:</strong> <span id="web-speech"></span><br />
+        <strong>MediaDevices API:</strong> <span id="media-devices"></span>
+      </div>
+
+      <button id="request-mic" onclick="requestMicrophone()">
+        🎤 Request Microphone Permission
+      </button>
+      <button id="test-speech" onclick="testSpeechRecognition()" disabled>
+        🗣️ Test Speech Recognition
+      </button>
+
+      <div id="status"></div>
+      <div id="results"></div>
     </div>
 
     <script>
-        // Detect browser and capabilities
-        function detectBrowser() {
-            const userAgent = navigator.userAgent.toLowerCase();
-            const browser = userAgent.includes('firefox') ? 'Firefox' : 
-                           userAgent.includes('chrome') ? 'Chrome' : 
-                           userAgent.includes('edge') ? 'Edge' : 
-                           userAgent.includes('safari') ? 'Safari' : 'Unknown';
-            
-            document.getElementById('browser-name').textContent = browser;
-            document.getElementById('web-speech').textContent = 
-                ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) ? '✅ Available' : '❌ Not Available';
-            document.getElementById('media-devices').textContent = 
-                ('mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices) ? '✅ Available' : '❌ Not Available';
+      // Detect browser and capabilities
+      function detectBrowser() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const browser = userAgent.includes("firefox")
+          ? "Firefox"
+          : userAgent.includes("chrome")
+          ? "Chrome"
+          : userAgent.includes("edge")
+          ? "Edge"
+          : userAgent.includes("safari")
+          ? "Safari"
+          : "Unknown";
+
+        document.getElementById("browser-name").textContent = browser;
+        document.getElementById("web-speech").textContent =
+          "webkitSpeechRecognition" in window || "SpeechRecognition" in window
+            ? "✅ Available"
+            : "❌ Not Available";
+        document.getElementById("media-devices").textContent =
+          "mediaDevices" in navigator &&
+          "getUserMedia" in navigator.mediaDevices
+            ? "✅ Available"
+            : "❌ Not Available";
+      }
+
+      // Request microphone permission
+      async function requestMicrophone() {
+        const statusDiv = document.getElementById("status");
+        const requestBtn = document.getElementById("request-mic");
+        const testBtn = document.getElementById("test-speech");
+
+        try {
+          requestBtn.disabled = true;
+          statusDiv.innerHTML =
+            '<div class="status info">🎤 Requesting microphone permission...</div>';
+
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+
+          // Success!
+          statusDiv.innerHTML =
+            '<div class="status success">✅ Microphone permission granted!</div>';
+          testBtn.disabled = false;
+
+          // Stop the stream since we just needed permission
+          stream.getTracks().forEach((track) => track.stop());
+        } catch (error) {
+          console.error("Microphone request failed:", error);
+          statusDiv.innerHTML = `<div class="status error">❌ Microphone permission denied: ${error.message}</div>`;
+        } finally {
+          requestBtn.disabled = false;
+        }
+      }
+
+      // Test speech recognition
+      function testSpeechRecognition() {
+        const resultsDiv = document.getElementById("results");
+        const statusDiv = document.getElementById("status");
+
+        if (
+          !("webkitSpeechRecognition" in window) &&
+          !("SpeechRecognition" in window)
+        ) {
+          statusDiv.innerHTML =
+            '<div class="status error">❌ Speech Recognition not supported in this browser</div>';
+          return;
         }
 
-        // Request microphone permission
-        async function requestMicrophone() {
-            const statusDiv = document.getElementById('status');
-            const requestBtn = document.getElementById('request-mic');
-            const testBtn = document.getElementById('test-speech');
-            
-            try {
-                requestBtn.disabled = true;
-                statusDiv.innerHTML = '<div class="status info">🎤 Requesting microphone permission...</div>';
-                
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // Success!
-                statusDiv.innerHTML = '<div class="status success">✅ Microphone permission granted!</div>';
-                testBtn.disabled = false;
-                
-                // Stop the stream since we just needed permission
-                stream.getTracks().forEach(track => track.stop());
-                
-            } catch (error) {
-                console.error('Microphone request failed:', error);
-                statusDiv.innerHTML = `<div class="status error">❌ Microphone permission denied: ${error.message}</div>`;
-            } finally {
-                requestBtn.disabled = false;
-            }
+        try {
+          const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
+          const recognition = new SpeechRecognition();
+
+          recognition.continuous = false;
+          recognition.interimResults = false;
+          recognition.lang = "en-US";
+
+          recognition.onstart = () => {
+            statusDiv.innerHTML =
+              '<div class="status info">🎤 Listening... Speak now!</div>';
+          };
+
+          recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            resultsDiv.innerHTML = `<div class="status success">📝 You said: "${transcript}"</div>`;
+            statusDiv.innerHTML =
+              '<div class="status success">✅ Speech recognition completed</div>';
+          };
+
+          recognition.onerror = (event) => {
+            statusDiv.innerHTML = `<div class="status error">❌ Speech recognition error: ${event.error}</div>`;
+          };
+
+          recognition.onend = () => {
+            console.log("Speech recognition ended");
+          };
+
+          recognition.start();
+        } catch (error) {
+          statusDiv.innerHTML = `<div class="status error">❌ Failed to start speech recognition: ${error.message}</div>`;
         }
+      }
 
-        // Test speech recognition
-        function testSpeechRecognition() {
-            const resultsDiv = document.getElementById('results');
-            const statusDiv = document.getElementById('status');
-            
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                statusDiv.innerHTML = '<div class="status error">❌ Speech Recognition not supported in this browser</div>';
-                return;
-            }
-
-            try {
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                const recognition = new SpeechRecognition();
-                
-                recognition.continuous = false;
-                recognition.interimResults = false;
-                recognition.lang = 'en-US';
-                
-                recognition.onstart = () => {
-                    statusDiv.innerHTML = '<div class="status info">🎤 Listening... Speak now!</div>';
-                };
-                
-                recognition.onresult = (event) => {
-                    const transcript = event.results[0][0].transcript;
-                    resultsDiv.innerHTML = `<div class="status success">📝 You said: "${transcript}"</div>`;
-                    statusDiv.innerHTML = '<div class="status success">✅ Speech recognition completed</div>';
-                };
-                
-                recognition.onerror = (event) => {
-                    statusDiv.innerHTML = `<div class="status error">❌ Speech recognition error: ${event.error}</div>`;
-                };
-                
-                recognition.onend = () => {
-                    console.log('Speech recognition ended');
-                };
-                
-                recognition.start();
-                
-            } catch (error) {
-                statusDiv.innerHTML = `<div class="status error">❌ Failed to start speech recognition: ${error.message}</div>`;
-            }
-        }
-
-        // Initialize
-        detectBrowser();
+      // Initialize
+      detectBrowser();
     </script>
-</body>
+  </body>
 </html>

@@ -2,14 +2,14 @@
 export const config = {
   azure: {
     speech: {
-      key: import.meta.env.VITE_AZURE_SPEECH_KEY || '',
-      region: import.meta.env.VITE_AZURE_SPEECH_REGION || 'eastus'
+      key: import.meta.env.VITE_AZURE_SPEECH_KEY || "",
+      region: import.meta.env.VITE_AZURE_SPEECH_REGION || "eastus",
     },
     openai: {
-      apiKey: import.meta.env.VITE_AZURE_OPENAI_API_KEY || '',
-      endpoint: import.meta.env.VITE_AZURE_OPENAI_ENDPOINT || ''
-    }
-  }
+      apiKey: import.meta.env.VITE_AZURE_OPENAI_API_KEY || "",
+      endpoint: import.meta.env.VITE_AZURE_OPENAI_ENDPOINT || "",
+    },
+  },
 };
 
 // Helper functions

@@ -13,12 +13,14 @@ A Chrome/Firefox browser extension for real-time speech transcription with AI-po
 ## Installation
 
 ### Chrome/Edge
+
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Enable "Developer mode" in the top right
 3. Click "Load unpacked" and select the `extension` folder
 4. The extension icon should appear in your toolbar
 
 ### Firefox
+
 1. Open Firefox and navigate to `about:debugging`
 2. Click "This Firefox" in the left sidebar
 3. Click "Load Temporary Add-on"
@@ -27,23 +29,27 @@ A Chrome/Firefox browser extension for real-time speech transcription with AI-po
 ## Usage
 
 ### Starting Transcription
+
 1. Click the extension icon in your browser toolbar
 2. Click the "Start Recording" button in the popup
 3. Allow microphone access when prompted
 4. A floating indicator will appear on the page showing recording status
 
 ### Visual Indicator
+
 - **Gray microphone (🎤)**: Ready to start recording
 - **Red dot with pulse (🔴)**: Currently recording
 - Click the indicator to quickly start/stop recording
 
 ### Transcription Features
+
 - **Real-time transcription**: See your speech converted to text instantly
 - **Question detection**: Questions are automatically identified
 - **AI responses**: Get AI-generated responses to detected questions
 - **Session saving**: All transcriptions are saved for later review
 
 ### Accessing Saved Sessions
+
 - Saved sessions sync with the main AI Live Transcriptor app
 - Click "Open Main App" in the extension popup to view all sessions
 - Sessions include timestamps, transcripts, and AI responses
@@ -57,12 +63,14 @@ A Chrome/Firefox browser extension for real-time speech transcription with AI-po
 ## Privacy & Permissions
 
 ### Required Permissions
+
 - **Microphone**: For speech recognition and transcription
 - **Active Tab**: To inject transcription functionality into web pages
 - **Storage**: To save transcription sessions locally
 - **Scripting**: To add visual indicators and controls to web pages
 
 ### Data Handling
+
 - All transcription data is stored locally in your browser
 - AI processing uses secure Azure OpenAI services
 - No personal data is transmitted without your explicit consent
@@ -87,21 +95,25 @@ The extension works seamlessly with the main AI Live Transcriptor application:
 ### Common Issues
 
 **Microphone not working:**
+
 - Check browser permissions for microphone access
 - Ensure no other applications are using the microphone
 - Try refreshing the page and restarting the extension
 
 **Extension not appearing:**
+
 - Verify the extension is enabled in browser settings
 - Check for browser compatibility
 - Try reloading the extension
 
 **Transcription not accurate:**
+
 - Speak clearly and at a moderate pace
 - Reduce background noise
 - Check microphone quality and positioning
 
 **AI responses not generating:**
+
 - Verify internet connection
 - Check if Azure OpenAI services are configured
 - Try asking clearer, more direct questions
@@ -109,6 +121,7 @@ The extension works seamlessly with the main AI Live Transcriptor application:
 ### Support
 
 For additional support:
+
 1. Check the main application's troubleshooting guide
 2. Verify all services are properly configured
 3. Report issues through the main application
@@ -116,6 +129,7 @@ For additional support:
 ## Development
 
 ### Building from Source
+
 ```bash
 # Clone the repository
 git clone [repository-url]
@@ -129,6 +143,7 @@ npm run build:extension
 ```
 
 ### File Structure
+
 ```
 extension/
 ├── manifest.json       # Extension configuration
@@ -142,6 +157,7 @@ extension/
 ## Version History
 
 ### v1.0.0
+
 - Initial release
 - Real-time speech transcription
 - AI question detection and response

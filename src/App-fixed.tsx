@@ -11,8 +11,12 @@ type NavigateFunction = (
 ) => void;
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<"dashboard" | "live" | "settings" | "sessions" | "session-detail">("dashboard");
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<
+    "dashboard" | "live" | "settings" | "sessions" | "session-detail"
+  >("dashboard");
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null
+  );
 
   const navigate: NavigateFunction = (page, sessionId) => {
     setCurrentPage(page);
@@ -32,17 +36,15 @@ function App() {
       case "sessions":
         return <PastSessions onNavigate={navigate} />;
       case "session-detail":
-        return <SessionDetail onNavigate={navigate} sessionId={selectedSessionId} />;
+        return (
+          <SessionDetail onNavigate={navigate} sessionId={selectedSessionId} />
+        );
       default:
         return <Dashboard onNavigate={navigate} />;
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#0F172A]">
-      {renderCurrentPage()}
-    </div>
-  );
+  return <div className="min-h-screen bg-[#0F172A]">{renderCurrentPage()}</div>;
 }
 
 export default App;

@@ -29,7 +29,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       wordsCount: 4250,
     },
     {
-      id: "2", 
+      id: "2",
       title: "Team Meeting - Project Review",
       date: "2025-08-05",
       duration: "45m",
@@ -39,7 +39,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     {
       id: "3",
       title: "Client Interview",
-      date: "2025-08-04", 
+      date: "2025-08-04",
       duration: "30m",
       type: "interview",
       wordsCount: 1950,
@@ -59,8 +59,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-[#F8FAFC]">AI Live Transcriptor</h1>
-            <p className="text-[#94A3B8]">Real-time speech transcription with AI</p>
+            <h1 className="text-2xl font-semibold text-[#F8FAFC]">
+              AI Live Transcriptor
+            </h1>
+            <p className="text-[#94A3B8]">
+              Real-time speech transcription with AI
+            </p>
           </div>
         </div>
 
@@ -79,8 +83,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <main className="p-6 max-w-7xl mx-auto">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h2 className="text-3xl font-semibold text-[#F8FAFC] mb-2">Welcome back!</h2>
-          <p className="text-[#94A3B8]">Ready to start a new transcription session?</p>
+          <h2 className="text-3xl font-semibold text-[#F8FAFC] mb-2">
+            Welcome back!
+          </h2>
+          <p className="text-[#94A3B8]">
+            Ready to start a new transcription session?
+          </p>
         </div>
 
         {/* Quick Actions */}
@@ -92,11 +100,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   <Mic className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-white mb-1">Start Live Transcription</h3>
-                  <p className="text-white/80 text-sm">Begin real-time speech-to-text conversion</p>
+                  <h3 className="text-xl font-semibold text-white mb-1">
+                    Start Live Transcription
+                  </h3>
+                  <p className="text-white/80 text-sm">
+                    Begin real-time speech-to-text conversion
+                  </p>
                 </div>
               </div>
-              <Button 
+              <Button
                 onClick={() => onNavigate("live")}
                 className="w-full mt-4 bg-white/20 hover:bg-white/30 text-white border-white/30"
                 variant="outline"
@@ -114,11 +126,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   <FileText className="w-6 h-6 text-[#F8FAFC]" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-[#F8FAFC] mb-1">View Past Sessions</h3>
-                  <p className="text-[#94A3B8] text-sm">Browse and manage your transcription history</p>
+                  <h3 className="text-xl font-semibold text-[#F8FAFC] mb-1">
+                    View Past Sessions
+                  </h3>
+                  <p className="text-[#94A3B8] text-sm">
+                    Browse and manage your transcription history
+                  </p>
                 </div>
               </div>
-              <Button 
+              <Button
                 onClick={() => onNavigate("sessions")}
                 className="w-full mt-4 bg-[#4B5563] hover:bg-[#374151] text-white"
               >
@@ -136,7 +152,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[#94A3B8] text-sm">{stat.label}</p>
-                    <p className="text-2xl font-semibold text-[#F8FAFC]">{stat.value}</p>
+                    <p className="text-2xl font-semibold text-[#F8FAFC]">
+                      {stat.value}
+                    </p>
                   </div>
                   <stat.icon className="w-8 h-8 text-[#6D28D9]" />
                 </div>
@@ -150,9 +168,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-[#F8FAFC]">Recent Sessions</CardTitle>
-              <Button 
+              <Button
                 onClick={() => onNavigate("sessions")}
-                variant="ghost" 
+                variant="ghost"
                 size="sm"
                 className="text-[#94A3B8] hover:text-[#F8FAFC]"
               >
@@ -162,7 +180,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             {recentSessions.map((session) => (
-              <div 
+              <div
                 key={session.id}
                 className="flex items-center justify-between p-4 bg-[#0F172A] rounded-lg border border-[#334155] hover:bg-[#1E293B]/50 cursor-pointer transition-colors"
                 onClick={() => onNavigate("session-detail", session.id)}
@@ -172,7 +190,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     <FileText className="w-5 h-5 text-[#F8FAFC]" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-[#F8FAFC]">{session.title}</h4>
+                    <h4 className="font-medium text-[#F8FAFC]">
+                      {session.title}
+                    </h4>
                     <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
                       <span>{session.date}</span>
                       <span>•</span>
@@ -182,8 +202,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     </div>
                   </div>
                 </div>
-                <Badge 
-                  variant="secondary" 
+                <Badge
+                  variant="secondary"
                   className="bg-[#4B5563]/30 text-[#F8FAFC] hover:bg-[#4B5563]/40"
                 >
                   {session.type}
