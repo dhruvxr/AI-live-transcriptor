@@ -1,11 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Card, CardContent } from './ui/card';
-import { Switch } from './ui/switch';
-import { Mic, MicOff, Square, Download, Bot, MessageSquare, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  startTranscription,
+  stopTranscription,
+} from "../src/services/azureSpeechService";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Card, CardContent } from "./ui/card";
+import { Switch } from "./ui/switch";
+import {
+  Mic,
+  MicOff,
+  Square,
+  Download,
+  Bot,
+  MessageSquare,
+  ArrowLeft,
+} from "lucide-react";
 
-type NavigateFunction = (page: 'dashboard' | 'live' | 'settings' | 'sessions' | 'session-detail', sessionId?: string) => void;
+type NavigateFunction = (
+  page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
+  sessionId?: string
+) => void;
 
 interface LiveTranscriptionProps {
   onNavigate: NavigateFunction;
@@ -13,7 +28,7 @@ interface LiveTranscriptionProps {
 
 interface TranscriptItem {
   id: string;
-  type: 'speech' | 'question' | 'answer';
+  type: "speech" | "question" | "answer";
   speaker?: string;
   content: string;
   timestamp: Date;
@@ -21,32 +36,12 @@ interface TranscriptItem {
 }
 
 export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
-  const [isRecording, setIsRecording] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isGeneratingAnswer, setIsGeneratingAnswer] = useState(false);
   const [voiceAnswerEnabled, setVoiceAnswerEnabled] = useState(false);
-  const [transcript, setTranscript] = useState<TranscriptItem[]>([
-    {
-      id: '1',
-      type: 'speech',
-      speaker: 'Professor Smith',
-      content: 'Good morning everyone. Today we\'ll be discussing the fundamentals of machine learning and how neural networks process information.',
-      timestamp: new Date(Date.now() - 120000)
-    },
-    {
-      id: '2',
-      type: 'question',
-      content: 'What is the difference between supervised and unsupervised learning?',
-      timestamp: new Date(Date.now() - 60000)
-    },
-    {
-      id: '3',
-      type: 'answer',
-      content: 'Supervised learning uses labeled training data to learn patterns, while unsupervised learning finds hidden patterns in unlabeled data. Supervised learning includes classification and regression tasks, whereas unsupervised learning includes clustering and dimensionality reduction.',
-      timestamp: new Date(Date.now() - 45000),
-      confidence: 87
-    }
-  ]);
+  const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -56,63 +51,146 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     }
   }, [transcript]);
 
-  // Simulate live transcription
-  useEffect(() => {
-    if (!isRecording || isPaused) return;
+  const handleTranscriptionUpdate = (text: string) => {
+    if (isPaused) return;
 
-    const interval = setInterval(() => {
-      const sampleTexts = [
-        "The key concept here is that data preprocessing is crucial for model performance.",
-        "Can you explain how backpropagation works in detail?",
-        "Let's move on to discussing different types of activation functions.",
-        "What are the advantages of using ReLU over sigmoid functions?"
-      ];
-
-      const isQuestion = Math.random() > 0.7;
-      const newItem: TranscriptItem = {
-        id: Date.now().toString(),
-        type: isQuestion ? 'question' : 'speech',
-        speaker: isQuestion ? undefined : 'Professor Smith',
-        content: sampleTexts[Math.floor(Math.random() * sampleTexts.length)],
-        timestamp: new Date()
-      };
-
-      setTranscript(prev => [...prev, newItem]);
-
-      if (isQuestion) {
-        setIsGeneratingAnswer(true);
-        setTimeout(() => {
-          const answers = [
-            "Backpropagation is an algorithm used to train neural networks by calculating gradients of the loss function with respect to the network's weights, allowing the network to learn from its mistakes.",
-            "ReLU (Rectified Linear Unit) activation functions are preferred over sigmoid functions because they help mitigate the vanishing gradient problem and are computationally more efficient.",
-            "Data preprocessing involves cleaning, transforming, and normalizing data to make it suitable for machine learning algorithms, which significantly impacts model accuracy."
-          ];
-
-          const answerItem: TranscriptItem = {
-            id: (Date.now() + 1).toString(),
-            type: 'answer',
-            content: answers[Math.floor(Math.random() * answers.length)],
+    setTranscript((prev) => {
+      const lastItem = prev[prev.length - 1];
+      // This logic will update the content of the last speech item as new text comes in.
+      if (lastItem?.type === "speech" && lastItem.speaker === "Me") {
+        const updatedItem = { ...lastItem, content: text };
+        return [...prev.slice(0, -1), updatedItem];
+      } else {
+        // When a new utterance begins, create a new speech item.
+        return [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            type: "speech",
+            speaker: "Me",
+            content: text,
             timestamp: new Date(),
-            confidence: Math.floor(Math.random() * 20) + 80
-          };
-
-          setTranscript(prev => [...prev, answerItem]);
-          setIsGeneratingAnswer(false);
-        }, 2000);
+          },
+        ];
       }
-    }, 8000);
+    });
+  };
 
-    return () => clearInterval(interval);
-  }, [isRecording, isPaused]);
+  const handleTranscriptionError = (errorMessage: string) => {
+    setError(errorMessage);
+    setIsRecording(false);
+  };
+
+  const startService = () => {
+    setError(null);
+    // A new final transcript segment will be created on each start.
+    startTranscription(handleTranscriptionUpdate, handleTranscriptionError);
+  };
+
+  const stopService = () => {
+    stopTranscription();
+  };
+
+  const handleStartSession = () => {
+    setTranscript([]);
+    setIsRecording(true);
+    setIsPaused(false);
+    startService();
+  };
 
   const handleStopSession = () => {
+    if (isRecording) {
+      stopService();
+    }
     setIsRecording(false);
-    onNavigate('dashboard');
+    onNavigate("dashboard");
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const togglePauseResume = () => {
+    const willPause = !isPaused;
+    setIsPaused(willPause);
+    if (willPause) {
+      stopService();
+    } else {
+      startService();
+    }
   };
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (isRecording) {
+        stopService();
+      }
+    };
+  }, [isRecording]);
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center">
+        <div className="text-center max-w-md p-8 bg-[#1E293B] rounded-lg shadow-lg">
+          <h1 className="text-2xl font-bold text-red-500 mb-4">
+            Transcription Error
+          </h1>
+          <p className="text-md text-[#94A3B8] mb-6">{error}</p>
+          <p className="text-sm text-[#94A3B8] mb-6">
+            Please check your Azure configuration in the settings page. The
+            service might not be configured correctly.
+          </p>
+          <div className="flex justify-center gap-4">
+            <Button
+              onClick={() => onNavigate("settings")}
+              variant="outline"
+              className="border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
+            >
+              Go to Settings
+            </Button>
+            <Button
+              onClick={() => {
+                setError(null);
+                setIsRecording(false);
+              }}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              Back
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isRecording) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center">
+        <div className="text-center">
+          <img
+            src="/src/assets/Logo.svg"
+            alt="AI Transcriptor"
+            className="h-32 w-auto mx-auto mb-8"
+          />
+          <h1 className="text-4xl font-bold text-white mb-4">
+            Ready to Transcribe
+          </h1>
+          <p className="text-lg text-[#94A3B8] mb-8">
+            Press the button to start your live transcription session.
+          </p>
+          <Button
+            onClick={handleStartSession}
+            size="lg"
+            className="bg-green-500 hover:bg-green-600 text-white"
+          >
+            <Mic className="w-6 h-6 mr-2" />
+            Start Session
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0F172A] flex flex-col">
@@ -122,20 +200,24 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onNavigate('dashboard')}
+            onClick={() => onNavigate("dashboard")}
             className="text-[#F8FAFC] hover:bg-[#1E293B]"
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex items-center">
-            <img src="/src/assets/Logo.svg" alt="AI Transcriptor" className="h-16 w-auto" />
+            <img
+              src="/src/assets/Logo.svg"
+              alt="AI Transcriptor"
+              className="h-16 w-auto"
+            />
           </div>
           <Badge className="bg-green-500 text-white">
             <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
             Live
           </Badge>
         </div>
-        
+
         <Button
           onClick={handleStopSession}
           className="bg-red-600 hover:bg-red-700 text-white"
@@ -149,56 +231,91 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       <div className="px-4 py-2 bg-[#1E293B] border-b border-[#334155]">
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-4">
-            <span className="text-[#10B981]">✅ AI Question Detected</span>
+            {isPaused ? (
+              <span className="text-yellow-400 flex items-center gap-2">
+                <MicOff className="w-4 h-4" /> Paused
+              </span>
+            ) : (
+              <span className="text-[#10B981] flex items-center gap-2">
+                <Mic className="w-4 h-4" /> Recording
+              </span>
+            )}
             {isGeneratingAnswer && (
               <span className="text-[#6D28D9] flex items-center gap-2">
                 <div className="flex gap-1">
                   <div className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce"></div>
-                  <div className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div
+                    className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce"
+                    style={{ animationDelay: "0.1s" }}
+                  ></div>
+                  <div
+                    className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
                 </div>
                 Generating Answer...
               </span>
             )}
           </div>
           <div className="text-[#94A3B8]">
-            Session Duration: {Math.floor((Date.now() - Date.now() + 300000) / 60000)}:15
+            {/* Session Duration can be implemented here */}
           </div>
         </div>
       </div>
 
       {/* Main Transcript Area */}
       <div className="flex-1 overflow-hidden">
-        <div
-          ref={scrollRef}
-          className="h-full overflow-y-auto p-4 space-y-4"
-        >
+        <div ref={scrollRef} className="h-full overflow-y-auto p-4 space-y-4">
+          {transcript.length === 0 && !isPaused && (
+            <div className="flex flex-col items-center justify-center h-full text-center text-[#94A3B8]">
+              <Mic className="w-16 h-16 mb-4" />
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Listening...
+              </h2>
+              <p>Start speaking and your words will appear here.</p>
+            </div>
+          )}
+          {transcript.length === 0 && isPaused && (
+            <div className="flex flex-col items-center justify-center h-full text-center text-[#94A3B8]">
+              <MicOff className="w-16 h-16 mb-4" />
+              <h2 className="text-2xl font-bold text-white mb-2">Paused</h2>
+              <p>Press "Resume" to continue transcription.</p>
+            </div>
+          )}
           {transcript.map((item) => (
             <div key={item.id} className="space-y-2">
-              {item.type === 'speech' && (
+              {item.type === "speech" && (
                 <div className="flex gap-3">
                   <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center text-white text-sm font-medium">
-                    {item.speaker?.charAt(0) || 'S'}
+                    {item.speaker?.charAt(0) || "S"}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-[#F8FAFC]">{item.speaker}:</span>
-                      <span className="text-xs text-[#94A3B8]">{formatTime(item.timestamp)}</span>
+                      <span className="font-medium text-[#F8FAFC]">
+                        {item.speaker}:
+                      </span>
+                      <span className="text-xs text-[#94A3B8]">
+                        {formatTime(item.timestamp)}
+                      </span>
                     </div>
                     <p className="text-[#F8FAFC]">{item.content}</p>
                   </div>
                 </div>
               )}
 
-              {item.type === 'question' && (
+              {item.type === "question" && (
                 <Card className="bg-[#1E3A8A]/20 border-[#3B82F6] ml-4">
                   <CardContent className="p-3">
                     <div className="flex items-start gap-2">
                       <MessageSquare className="w-4 h-4 text-[#3B82F6] mt-1 flex-shrink-0" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-[#3B82F6]">Question Detected:</span>
-                          <span className="text-xs text-[#94A3B8]">{formatTime(item.timestamp)}</span>
+                          <span className="font-medium text-[#3B82F6]">
+                            Question Detected:
+                          </span>
+                          <span className="text-xs text-[#94A3B8]">
+                            {formatTime(item.timestamp)}
+                          </span>
                         </div>
                         <p className="text-[#F8FAFC]">{item.content}</p>
                       </div>
@@ -207,17 +324,24 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
                 </Card>
               )}
 
-              {item.type === 'answer' && (
+              {item.type === "answer" && (
                 <Card className="bg-[#581C87]/20 border-[#6D28D9] ml-8">
                   <CardContent className="p-3">
                     <div className="flex items-start gap-2">
                       <Bot className="w-4 h-4 text-[#6D28D9] mt-1 flex-shrink-0" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-[#6D28D9]">AI Answer:</span>
-                          <span className="text-xs text-[#94A3B8]">{formatTime(item.timestamp)}</span>
+                          <span className="font-medium text-[#6D28D9]">
+                            AI Answer:
+                          </span>
+                          <span className="text-xs text-[#94A3B8]">
+                            {formatTime(item.timestamp)}
+                          </span>
                           {item.confidence && (
-                            <Badge variant="outline" className="text-xs border-[#6D28D9] text-[#6D28D9]">
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-[#6D28D9] text-[#6D28D9]"
+                            >
                               {item.confidence}% confidence
                             </Badge>
                           )}
@@ -230,18 +354,15 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
               )}
             </div>
           ))}
-          
+
           {isGeneratingAnswer && (
             <Card className="bg-[#581C87]/20 border-[#6D28D9] ml-8">
               <CardContent className="p-3">
                 <div className="flex items-center gap-2">
                   <Bot className="w-4 h-4 text-[#6D28D9]" />
-                  <span className="font-medium text-[#6D28D9]">AI is generating an answer...</span>
-                  <div className="flex gap-1 ml-2">
-                    <div className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce"></div>
-                    <div className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-1 h-1 bg-[#6D28D9] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
+                  <span className="font-medium text-[#6D28D9]">
+                    AI is generating an answer...
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -254,7 +375,9 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <label htmlFor="voice-answer" className="text-sm text-[#F8FAFC]">Voice Answer</label>
+              <label htmlFor="voice-answer" className="text-sm text-[#F8FAFC]">
+                Voice Answer
+              </label>
               <Switch
                 id="voice-answer"
                 checked={voiceAnswerEnabled}
@@ -265,12 +388,20 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
 
           <div className="flex items-center gap-3">
             <Button
-              onClick={() => setIsPaused(!isPaused)}
+              onClick={togglePauseResume}
               variant={isPaused ? "default" : "outline"}
-              className={isPaused ? "bg-[#3B82F6] hover:bg-[#2563EB]" : "border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]"}
+              className={
+                isPaused
+                  ? "bg-[#3B82F6] hover:bg-[#2563EB]"
+                  : "border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]"
+              }
             >
-              {isPaused ? <Mic className="w-4 h-4 mr-2" /> : <MicOff className="w-4 h-4 mr-2" />}
-              {isPaused ? 'Resume' : 'Pause Mic'}
+              {isPaused ? (
+                <Mic className="w-4 h-4 mr-2" />
+              ) : (
+                <MicOff className="w-4 h-4 mr-2" />
+              )}
+              {isPaused ? "Resume" : "Pause Mic"}
             </Button>
 
             <Button
