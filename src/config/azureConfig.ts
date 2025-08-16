@@ -3,6 +3,7 @@ export interface AzureConfig {
   speechRegion: string;
   openAIApiKey?: string;
   openAIEndpoint?: string;
+  azureOpenAIApiDeploymentName?: string;
 }
 
 export const getAzureConfig = (): Promise<AzureConfig> => {
@@ -11,6 +12,8 @@ export const getAzureConfig = (): Promise<AzureConfig> => {
     const speechRegion = import.meta.env.VITE_AZURE_SPEECH_REGION;
     const openAIApiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
     const openAIEndpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
+    const azureOpenAIApiDeploymentName = import.meta.env
+      .VITE_AZURE_OPENAI_API_DEPLOYMENT_NAME;
 
     if (speechKey && speechRegion) {
       resolve({
@@ -18,6 +21,7 @@ export const getAzureConfig = (): Promise<AzureConfig> => {
         speechRegion,
         openAIApiKey,
         openAIEndpoint,
+        azureOpenAIApiDeploymentName,
       });
     } else {
       reject(new Error("Azure Speech key or region not found in .env file."));

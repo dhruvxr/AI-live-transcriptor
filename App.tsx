@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { Dashboard } from './components/Dashboard';
-import { LiveTranscription } from './components/LiveTranscription';
-import { Settings } from './components/Settings';
-import { PastSessions } from './components/PastSessions';
-import { SessionDetail } from './components/SessionDetail';
+import React, { useState } from "react";
+import { Dashboard } from "@components/Dashboard";
+import { LiveTranscription } from "@components/LiveTranscription";
+import { Settings } from "@components/Settings";
+import { PastSessions } from "@components/PastSessions";
+import { SessionDetail } from "@components/SessionDetail";
 
-type Page = 'dashboard' | 'live' | 'settings' | 'sessions' | 'session-detail';
+type Page = "dashboard" | "live" | "settings" | "sessions" | "session-detail";
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<Page>("dashboard");
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null
+  );
 
   const navigate = (page: Page, sessionId?: string) => {
     setCurrentPage(page);
@@ -18,16 +20,18 @@ export default function App() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'dashboard':
+      case "dashboard":
         return <Dashboard onNavigate={navigate} />;
-      case 'live':
+      case "live":
         return <LiveTranscription onNavigate={navigate} />;
-      case 'settings':
+      case "settings":
         return <Settings onNavigate={navigate} />;
-      case 'sessions':
+      case "sessions":
         return <PastSessions onNavigate={navigate} />;
-      case 'session-detail':
-        return <SessionDetail onNavigate={navigate} sessionId={selectedSessionId} />;
+      case "session-detail":
+        return (
+          <SessionDetail onNavigate={navigate} sessionId={selectedSessionId} />
+        );
       default:
         return <Dashboard onNavigate={navigate} />;
     }
