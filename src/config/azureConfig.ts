@@ -10,7 +10,42 @@ const CONFIG_KEY = "azureConfig";
 
 export const getAzureConfig = (): Promise<AzureConfig> => {
   return new Promise((resolve, reject) => {
-    // First, try to get config from local storage
+    // First, try to get config from environment variables
+    const speechKey = import.meta.env.VITE_AZURE_SPEECH_KEY;
+    const speechRegion = import.meta.env.VITE_AZURE_SPEECH_REGION;
+    const openAIApiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
+    const openAIEndpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
+    const azureOpenAIApiDeploymentName = import.meta.env
+      .VITE_AZURE_OPENAI_API_DEPLOYMENT_NAME;
+
+    // If we have environment variables, use them
+    if (speechKey && speechRegion) {
+      // Parse deployment name from endpoint if not provided separately
+      let deploymentName = azureOpenAIApiDeploymentName;
+      if (!deploymentName && openAIEndpoint) {
+        const match = openAIEndpoint.match(/\/deployments\/([^\/]+)\//);
+        if (match) {
+          deploymentName = match[1];
+        }
+      }
+
+      // Clean endpoint URL (remove deployment path if present)
+      let cleanEndpoint = openAIEndpoint;
+      if (cleanEndpoint && cleanEndpoint.includes('/deployments/')) {
+        cleanEndpoint = cleanEndpoint.split('/openai/deployments/')[0];
+      }
+
+      resolve({
+        speechKey,
+        speechRegion,
+        openAIApiKey,
+        openAIEndpoint: cleanEndpoint,
+        azureOpenAIApiDeploymentName: deploymentName,
+      });
+      return;
+    }
+
+    // Fallback to local storage if environment variables are not available
     const storedConfig = localStorage.getItem(CONFIG_KEY);
     if (storedConfig) {
       try {
@@ -24,29 +59,11 @@ export const getAzureConfig = (): Promise<AzureConfig> => {
       }
     }
 
-    // Fallback to environment variables if not in local storage
-    const speechKey = import.meta.env.VITE_AZURE_SPEECH_KEY;
-    const speechRegion = import.meta.env.VITE_AZURE_SPEECH_REGION;
-    const openAIApiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY;
-    const openAIEndpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
-    const azureOpenAIApiDeploymentName = import.meta.env
-      .VITE_AZURE_OPENAI_API_DEPLOYMENT_NAME;
-
-    if (speechKey && speechRegion) {
-      resolve({
-        speechKey,
-        speechRegion,
-        openAIApiKey,
-        openAIEndpoint,
-        azureOpenAIApiDeploymentName,
-      });
-    } else {
-      reject(
-        new Error(
-          "Azure configuration not found in local storage or .env file."
-        )
-      );
-    }
+    reject(
+      new Error(
+        "Azure configuration not found in environment variables or local storage."
+      )
+    );
   });
 };
 

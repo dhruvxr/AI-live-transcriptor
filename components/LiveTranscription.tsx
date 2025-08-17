@@ -28,29 +28,24 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-// import { getAIResponseStream } from "../src/services/azureOpenAIService-fixed";
-// import {
-//   detectQuestionWithConfidence,
-//   generateQuestionResponse,
-// } from "../src/services/realQuestionDetectionService";
+import { getAIResponseStream } from "../src/services/azureOpenAIService-fixed";
 import {
   createSession,
   updateSession,
 } from "../src/services/dataStorageService";
-// import {
-//   downloadAsText,
-//   downloadAsPdf,
-//   downloadAsWord,
-//   TranscriptData,
-// } from "../src/services/realExportService";
+import {
+  downloadAsText,
+  downloadAsPdf,
+  downloadAsWord,
+} from "../src/services/simpleExportService";
 
-// Simple interface for transcript data (temporary)
-// interface TranscriptData {
-//   title: string;
-//   content: string;
-//   timestamp: string;
-//   duration: string;
-// }
+// Simple interface for transcript data
+interface TranscriptData {
+  title: string;
+  content: string;
+  timestamp: string;
+  duration: string;
+}
 
 type NavigateFunction = (
   page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
@@ -147,27 +142,29 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     setIsGeneratingClarification(true);
     setClarificationAnswer("");
 
-    // Temporarily disabled - AI functionality needs to be fixed
-    setClarificationAnswer(
-      "AI clarification is temporarily disabled. Please try again later."
+    const prompt = `Based on the following transcribed text, please answer the user's question clearly and concisely.
+
+Context: "${selectedTranscriptForClarification.content}"
+Question: "${clarificationQuestion}"
+
+Please provide a helpful explanation or clarification.`;
+
+    getAIResponseStream(
+      prompt,
+      (chunk) => {
+        setClarificationAnswer((prev) => prev + chunk);
+      },
+      () => {
+        setIsGeneratingClarification(false);
+      },
+      (error) => {
+        console.error("Error generating clarification:", error);
+        setClarificationAnswer(
+          "Error generating clarification. Please check your Azure OpenAI configuration in Settings."
+        );
+        setIsGeneratingClarification(false);
+      }
     );
-    setIsGeneratingClarification(false);
-
-    // const prompt = `Based on the following transcribed text, please answer the user's question clearly and concisely.
-
-    // Context: "${selectedTranscriptForClarification.content}"
-    // Question: "${clarificationQuestion}"
-
-    // Please provide a helpful explanation or clarification.`;
-
-    // getAIResponseStream(
-    //   prompt,
-    //   (chunk) => {
-    //     setClarificationAnswer((prev) => prev + chunk);
-    //   },
-    //   () => {
-    //     setIsGeneratingClarification(false);
-    //   },
     //   (error) => {
     //     console.error("Error getting AI clarification:", error);
     //     setClarificationAnswer(
@@ -589,21 +586,16 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       return;
     }
 
-    // Temporarily disabled - export functionality needs to be fixed
-    alert(
-      "Export functionality is temporarily disabled. Use the Save button to save transcripts to sessions."
-    );
+    const transcriptData: TranscriptData = {
+      title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
+      content: transcript
+        .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
+        .join("\n"),
+      timestamp: new Date().toISOString(),
+      duration: calculateDuration(),
+    };
 
-    // const transcriptData: TranscriptData = {
-    //   title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
-    //   content: transcript
-    //     .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
-    //     .join("\n"),
-    //   timestamp: new Date().toISOString(),
-    //   duration: calculateDuration(),
-    // };
-
-    // downloadAsText(transcriptData);
+    downloadAsText(transcriptData);
   };
 
   const handleExportAsPdf = () => {
@@ -612,21 +604,16 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       return;
     }
 
-    // Temporarily disabled - export functionality needs to be fixed
-    alert(
-      "Export functionality is temporarily disabled. Use the Save button to save transcripts to sessions."
-    );
+    const transcriptData: TranscriptData = {
+      title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
+      content: transcript
+        .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
+        .join("\n"),
+      timestamp: new Date().toISOString(),
+      duration: calculateDuration(),
+    };
 
-    // const transcriptData: TranscriptData = {
-    //   title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
-    //   content: transcript
-    //     .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
-    //     .join("\n"),
-    //   timestamp: new Date().toISOString(),
-    //   duration: calculateDuration(),
-    // };
-
-    // downloadAsPdf(transcriptData);
+    downloadAsPdf(transcriptData);
   };
 
   const handleExportAsWord = async () => {
@@ -635,21 +622,16 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       return;
     }
 
-    // Temporarily disabled - export functionality needs to be fixed
-    alert(
-      "Export functionality is temporarily disabled. Use the Save button to save transcripts to sessions."
-    );
+    const transcriptData: TranscriptData = {
+      title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
+      content: transcript
+        .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
+        .join("\n"),
+      timestamp: new Date().toISOString(),
+      duration: calculateDuration(),
+    };
 
-    // const transcriptData: TranscriptData = {
-    //   title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
-    //   content: transcript
-    //     .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
-    //     .join("\n"),
-    //   timestamp: new Date().toISOString(),
-    //   duration: calculateDuration(),
-    // };
-
-    // await downloadAsWord(transcriptData);
+    await downloadAsWord(transcriptData);
   };
 
   const handleSaveTranscript = () => {
@@ -717,22 +699,22 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     }
   };
 
-  // const calculateDuration = (): string => {
-  //   if (transcript.length === 0) return "0m";
+  const calculateDuration = (): string => {
+    if (transcript.length === 0) return "0m";
 
-  //   const startTime = transcript[0]?.timestamp;
-  //   const endTime = transcript[transcript.length - 1]?.timestamp;
+    const startTime = transcript[0]?.timestamp;
+    const endTime = transcript[transcript.length - 1]?.timestamp;
 
-  //   if (!startTime || !endTime) return "0m";
+    if (!startTime || !endTime) return "0m";
 
-  //   const durationMs = endTime.getTime() - startTime.getTime();
-  //   const minutes = Math.floor(durationMs / 60000);
-  //   const seconds = Math.floor((durationMs % 60000) / 1000);
+    const durationMs = endTime.getTime() - startTime.getTime();
+    const minutes = Math.floor(durationMs / 60000);
+    const seconds = Math.floor((durationMs % 60000) / 1000);
 
-  //   if (minutes === 0) return `${seconds}s`;
-  //   if (seconds === 0) return `${minutes}m`;
-  //   return `${minutes}m ${seconds}s`;
-  // };
+    if (minutes === 0) return `${seconds}s`;
+    if (seconds === 0) return `${minutes}m`;
+    return `${minutes}m ${seconds}s`;
+  };
 
   if (error) {
     return (

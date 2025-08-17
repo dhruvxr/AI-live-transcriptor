@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Switch } from "./ui/switch";
+import { Label } from "./ui/label";
 import {
   Select,
   SelectContent,
@@ -11,7 +12,8 @@ import {
 } from "./ui/select";
 import { Slider } from "./ui/slider";
 import { Checkbox } from "./ui/checkbox";
-import { ArrowLeft, Save, Mic } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
+import { getAzureConfig } from "../src/config/azureConfig";
 
 type NavigateFunction = (
   page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
@@ -33,8 +35,34 @@ export function Settings({ onNavigate }: SettingsProps) {
     pdf: true,
   });
 
+  // Azure OpenAI Configuration
+  const [azureConfig, setAzureConfigState] = useState({
+    speechKey: "",
+    speechRegion: "",
+    openAIApiKey: "",
+    openAIEndpoint: "",
+    azureOpenAIApiDeploymentName: "",
+  });
+
+  // Load existing configuration on component mount
+  useEffect(() => {
+    getAzureConfig()
+      .then((config) => {
+        setAzureConfigState({
+          speechKey: config.speechKey || "",
+          speechRegion: config.speechRegion || "",
+          openAIApiKey: config.openAIApiKey || "",
+          openAIEndpoint: config.openAIEndpoint || "",
+          azureOpenAIApiDeploymentName: config.azureOpenAIApiDeploymentName || "",
+        });
+      })
+      .catch((error) => {
+        console.log("No existing Azure config found:", error);
+      });
+  }, []);
+
   const handleSave = () => {
-    // In a real app, this would save to backend/localStorage
+    // Save other settings (in a real app, this would save to backend/localStorage)
     console.log("Settings saved:", {
       textToSpeechEnabled,
       selectedLanguage,
@@ -42,6 +70,8 @@ export function Settings({ onNavigate }: SettingsProps) {
       sensitivity: sensitivity[0],
       exportFormats,
     });
+    
+    alert("Settings saved successfully! Azure configuration is managed via .env file.");
   };
 
   return (
@@ -191,6 +221,64 @@ export function Settings({ onNavigate }: SettingsProps) {
                     </SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Azure OpenAI Configuration */}
+          <Card className="bg-[#1E293B] border-[#334155]">
+            <CardHeader>
+              <CardTitle className="text-[#F8FAFC]">
+                Azure Configuration Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[#F8FAFC]">Speech Service Key</Label>
+                    <div className="bg-[#334155] border border-[#475569] rounded px-3 py-2 text-[#F8FAFC]">
+                      {azureConfig.speechKey ? '••••••••••••••••' : 'Not configured'}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[#F8FAFC]">Speech Service Region</Label>
+                    <div className="bg-[#334155] border border-[#475569] rounded px-3 py-2 text-[#F8FAFC]">
+                      {azureConfig.speechRegion || 'Not configured'}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-[#F8FAFC]">Azure OpenAI API Key</Label>
+                  <div className="bg-[#334155] border border-[#475569] rounded px-3 py-2 text-[#F8FAFC]">
+                    {azureConfig.openAIApiKey ? '••••••••••••••••' : 'Not configured'}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-[#F8FAFC]">Azure OpenAI Endpoint</Label>
+                  <div className="bg-[#334155] border border-[#475569] rounded px-3 py-2 text-[#F8FAFC] text-sm">
+                    {azureConfig.openAIEndpoint || 'Not configured'}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-[#F8FAFC]">Deployment Name</Label>
+                  <div className="bg-[#334155] border border-[#475569] rounded px-3 py-2 text-[#F8FAFC]">
+                    {azureConfig.azureOpenAIApiDeploymentName || 'Not configured'}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-sm text-[#94A3B8] p-3 bg-[#0F172A] rounded-lg">
+                <p className="font-medium mb-2">Configuration via .env file:</p>
+                <ul className="space-y-1 list-disc list-inside">
+                  <li>Configuration is loaded from the .env file in the project root</li>
+                  <li>Environment variables: VITE_AZURE_SPEECH_KEY, VITE_AZURE_SPEECH_REGION</li>
+                  <li>For AI features: VITE_AZURE_OPENAI_API_KEY, VITE_AZURE_OPENAI_ENDPOINT, VITE_AZURE_OPENAI_API_DEPLOYMENT_NAME</li>
+                  <li>Restart the development server after updating the .env file</li>
+                </ul>
               </div>
             </CardContent>
           </Card>
