@@ -3,7 +3,10 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Mic, FileText, Settings, BarChart3, Clock, Zap } from "lucide-react";
-import { getAllSessions, getSessionStats } from "../src/services/dataStorageService";
+import {
+  getAllSessions,
+  getSessionStats,
+} from "../src/services/dataStorageService";
 
 type NavigateFunction = (
   page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
@@ -18,7 +21,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const [stats, setStats] = useState({
     totalSessions: 0,
     totalHours: 0,
-    totalWords: 0
+    totalWords: 0,
   });
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
 
@@ -28,12 +31,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     setStats({
       totalSessions: sessionStats.totalSessions,
       totalHours: sessionStats.totalHours,
-      totalWords: sessionStats.totalWords
+      totalWords: sessionStats.totalWords,
     });
 
     // Get the 3 most recent sessions
     const allSessions = getAllSessions();
-    const recent = allSessions.slice(0, 3).map(session => ({
+    const recent = allSessions.slice(0, 3).map((session) => ({
       id: session.id,
       title: session.title,
       date: session.date,
@@ -45,9 +48,21 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   }, []);
 
   const statsDisplay = [
-    { label: "Total Sessions", value: stats.totalSessions.toString(), icon: FileText },
-    { label: "Hours Transcribed", value: stats.totalHours.toString(), icon: Clock },
-    { label: "Words Processed", value: stats.totalWords.toLocaleString(), icon: BarChart3 },
+    {
+      label: "Total Sessions",
+      value: stats.totalSessions.toString(),
+      icon: FileText,
+    },
+    {
+      label: "Hours Transcribed",
+      value: stats.totalHours.toString(),
+      icon: Clock,
+    },
+    {
+      label: "Words Processed",
+      value: stats.totalWords.toLocaleString(),
+      icon: BarChart3,
+    },
   ];
 
   return (
@@ -220,8 +235,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 <div className="w-16 h-16 mx-auto mb-4 bg-[#334155] rounded-full flex items-center justify-center">
                   <FileText className="w-8 h-8 text-[#94A3B8]" />
                 </div>
-                <h3 className="text-[#F8FAFC] font-medium mb-2">No sessions yet</h3>
-                <p className="text-[#94A3B8] mb-4">Start your first transcription session to see it here</p>
+                <h3 className="text-[#F8FAFC] font-medium mb-2">
+                  No sessions yet
+                </h3>
+                <p className="text-[#94A3B8] mb-4">
+                  Start your first transcription session to see it here
+                </p>
                 <Button
                   onClick={() => onNavigate("live")}
                   size="sm"

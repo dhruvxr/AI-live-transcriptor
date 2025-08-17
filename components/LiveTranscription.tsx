@@ -35,7 +35,10 @@ import {
   detectQuestionWithConfidence,
   generateQuestionResponse,
 } from "../src/services/questionDetectionService";
-import { createSession, updateSession } from "../src/services/dataStorageService";
+import {
+  createSession,
+  updateSession,
+} from "../src/services/dataStorageService";
 import {
   downloadAsText,
   downloadAsPdf,
@@ -478,15 +481,20 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
         const durationMinutes = Math.round(durationMs / 60000);
         const durationHours = Math.floor(durationMinutes / 60);
         const remainingMinutes = durationMinutes % 60;
-        const durationString = durationHours > 0 
-          ? `${durationHours}h ${remainingMinutes}m`
-          : `${remainingMinutes}m`;
+        const durationString =
+          durationHours > 0
+            ? `${durationHours}h ${remainingMinutes}m`
+            : `${remainingMinutes}m`;
 
         // Convert transcript items to the format expected by dataStorageService
-        const transcriptData = transcript.map(item => ({
+        const transcriptData = transcript.map((item) => ({
           id: item.id,
-          type: item.type === "answer" ? "ai_response" as const : 
-                item.type === "question" ? "question" as const : "speech" as const,
+          type:
+            item.type === "answer"
+              ? ("ai_response" as const)
+              : item.type === "question"
+              ? ("question" as const)
+              : ("speech" as const),
           content: item.content,
           timestamp: item.timestamp.toISOString(),
           confidence: item.confidence,
@@ -498,9 +506,16 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           endTime: endTime.toLocaleTimeString(),
           duration: durationString,
           transcript: transcriptData,
-          questionsCount: transcript.filter(item => item.type === "question").length,
-          wordsCount: transcript.reduce((count, item) => count + item.content.split(" ").length, 0),
-          summary: transcript.length > 0 ? `Session with ${transcript.length} transcript items` : "Empty session"
+          questionsCount: transcript.filter((item) => item.type === "question")
+            .length,
+          wordsCount: transcript.reduce(
+            (count, item) => count + item.content.split(" ").length,
+            0
+          ),
+          summary:
+            transcript.length > 0
+              ? `Session with ${transcript.length} transcript items`
+              : "Empty session",
         });
 
         if (updatedSession) {

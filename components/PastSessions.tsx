@@ -1,13 +1,35 @@
-import { useState, useEffect } from 'react';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader } from './ui/card';
-import { Badge } from './ui/badge';
-import { Input } from './ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { ArrowLeft, Search, Calendar, Clock, Play, Download, Trash2, Mic, Filter } from 'lucide-react';
-import { getAllSessions, deleteSession } from '../src/services/dataStorageService';
+import { useState, useEffect } from "react";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardHeader } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  ArrowLeft,
+  Search,
+  Calendar,
+  Clock,
+  Play,
+  Download,
+  Trash2,
+  Mic,
+  Filter,
+} from "lucide-react";
+import {
+  getAllSessions,
+  deleteSession,
+} from "../src/services/dataStorageService";
 
-type NavigateFunction = (page: 'dashboard' | 'live' | 'settings' | 'sessions' | 'session-detail', sessionId?: string) => void;
+type NavigateFunction = (
+  page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
+  sessionId?: string
+) => void;
 
 interface PastSessionsProps {
   onNavigate: NavigateFunction;
@@ -19,16 +41,16 @@ interface Session {
   date: string;
   time: string;
   duration: string;
-  type: 'lecture' | 'meeting' | 'interview' | 'other';
+  type: "lecture" | "meeting" | "interview" | "other";
   summary: string;
   questionsCount: number;
   wordsCount: number;
 }
 
 export function PastSessions({ onNavigate }: PastSessionsProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [sortBy, setSortBy] = useState('date-desc');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [sortBy, setSortBy] = useState("date-desc");
   const [sessions, setSessions] = useState<Session[]>([]);
 
   useEffect(() => {
@@ -36,16 +58,16 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
     const loadSessions = () => {
       const storedSessions = getAllSessions();
       // Convert TranscriptionSession to Session format for UI compatibility
-      const formattedSessions = storedSessions.map(session => ({
+      const formattedSessions = storedSessions.map((session) => ({
         id: session.id,
         title: session.title,
         date: session.date,
         time: session.startTime,
         duration: session.duration,
-        type: session.type === 'other' ? 'lecture' : session.type, // Map 'other' to 'lecture' for UI
-        summary: session.summary || 'No summary available',
+        type: session.type === "other" ? "lecture" : session.type, // Map 'other' to 'lecture' for UI
+        summary: session.summary || "No summary available",
         questionsCount: session.questionsCount,
-        wordsCount: session.wordsCount
+        wordsCount: session.wordsCount,
       }));
       setSessions(formattedSessions);
     };
@@ -54,21 +76,21 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
   }, []);
 
   const handleDeleteSession = async (sessionId: string) => {
-    if (window.confirm('Are you sure you want to delete this session?')) {
+    if (window.confirm("Are you sure you want to delete this session?")) {
       const success = deleteSession(sessionId);
       if (success) {
         // Refresh the sessions list
         const storedSessions = getAllSessions();
-        const formattedSessions = storedSessions.map(session => ({
+        const formattedSessions = storedSessions.map((session) => ({
           id: session.id,
           title: session.title,
           date: session.date,
           time: session.startTime,
           duration: session.duration,
-          type: session.type === 'other' ? 'lecture' : session.type,
-          summary: session.summary || 'No summary available',
+          type: session.type === "other" ? "lecture" : session.type,
+          summary: session.summary || "No summary available",
           questionsCount: session.questionsCount,
-          wordsCount: session.wordsCount
+          wordsCount: session.wordsCount,
         }));
         setSessions(formattedSessions);
       }
@@ -76,21 +98,22 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
   };
 
   const filteredSessions = sessions
-    .filter(session => {
-      const matchesSearch = session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          session.summary.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesType = filterType === 'all' || session.type === filterType;
+    .filter((session) => {
+      const matchesSearch =
+        session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        session.summary.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesType = filterType === "all" || session.type === filterType;
       return matchesSearch && matchesType;
     })
     .sort((a, b) => {
       switch (sortBy) {
-        case 'date-desc':
+        case "date-desc":
           return new Date(b.date).getTime() - new Date(a.date).getTime();
-        case 'date-asc':
+        case "date-asc":
           return new Date(a.date).getTime() - new Date(b.date).getTime();
-        case 'duration-desc':
+        case "duration-desc":
           return parseInt(b.duration) - parseInt(a.duration);
-        case 'title-asc':
+        case "title-asc":
           return a.title.localeCompare(b.title);
         default:
           return 0;
@@ -99,19 +122,27 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'lecture': return '🎓';
-      case 'meeting': return '🏢';
-      case 'interview': return '🎤';
-      default: return '📄';
+      case "lecture":
+        return "🎓";
+      case "meeting":
+        return "🏢";
+      case "interview":
+        return "🎤";
+      default:
+        return "📄";
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'lecture': return 'bg-blue-500';
-      case 'meeting': return 'bg-green-500';
-      case 'interview': return 'bg-purple-500';
-      default: return 'bg-gray-500';
+      case "lecture":
+        return "bg-blue-500";
+      case "meeting":
+        return "bg-green-500";
+      case "interview":
+        return "bg-purple-500";
+      default:
+        return "bg-gray-500";
     }
   };
 
@@ -123,7 +154,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onNavigate('dashboard')}
+            onClick={() => onNavigate("dashboard")}
             className="text-[#F8FAFC] hover:bg-[#1E293B]"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -135,9 +166,9 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
             <h1 className="text-xl font-semibold">Past Sessions</h1>
           </div>
         </div>
-        
+
         <Button
-          onClick={() => onNavigate('live')}
+          onClick={() => onNavigate("live")}
           className="bg-gradient-to-r from-[#4B5563] to-[#6D28D9] hover:from-[#374151] hover:to-[#5B21B6] text-white shadow-md"
         >
           <Mic className="w-4 h-4 mr-2" />
@@ -157,7 +188,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
               className="pl-10 bg-[#0F172A] border-[#334155] text-[#F8FAFC] placeholder-[#94A3B8]"
             />
           </div>
-          
+
           <div className="flex gap-3">
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-[140px] bg-[#0F172A] border-[#334155] text-[#F8FAFC]">
@@ -165,10 +196,30 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-[#1E293B] border-[#334155]">
-                <SelectItem value="all" className="text-[#F8FAFC] focus:bg-[#334155]">All Types</SelectItem>
-                <SelectItem value="lecture" className="text-[#F8FAFC] focus:bg-[#334155]">🎓 Lectures</SelectItem>
-                <SelectItem value="meeting" className="text-[#F8FAFC] focus:bg-[#334155]">🏢 Meetings</SelectItem>
-                <SelectItem value="interview" className="text-[#F8FAFC] focus:bg-[#334155]">🎤 Interviews</SelectItem>
+                <SelectItem
+                  value="all"
+                  className="text-[#F8FAFC] focus:bg-[#334155]"
+                >
+                  All Types
+                </SelectItem>
+                <SelectItem
+                  value="lecture"
+                  className="text-[#F8FAFC] focus:bg-[#334155]"
+                >
+                  🎓 Lectures
+                </SelectItem>
+                <SelectItem
+                  value="meeting"
+                  className="text-[#F8FAFC] focus:bg-[#334155]"
+                >
+                  🏢 Meetings
+                </SelectItem>
+                <SelectItem
+                  value="interview"
+                  className="text-[#F8FAFC] focus:bg-[#334155]"
+                >
+                  🎤 Interviews
+                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -177,10 +228,30 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-[#1E293B] border-[#334155]">
-                <SelectItem value="date-desc" className="text-[#F8FAFC] focus:bg-[#334155]">Newest First</SelectItem>
-                <SelectItem value="date-asc" className="text-[#F8FAFC] focus:bg-[#334155]">Oldest First</SelectItem>
-                <SelectItem value="duration-desc" className="text-[#F8FAFC] focus:bg-[#334155]">Longest First</SelectItem>
-                <SelectItem value="title-asc" className="text-[#F8FAFC] focus:bg-[#334155]">Title A-Z</SelectItem>
+                <SelectItem
+                  value="date-desc"
+                  className="text-[#F8FAFC] focus:bg-[#334155]"
+                >
+                  Newest First
+                </SelectItem>
+                <SelectItem
+                  value="date-asc"
+                  className="text-[#F8FAFC] focus:bg-[#334155]"
+                >
+                  Oldest First
+                </SelectItem>
+                <SelectItem
+                  value="duration-desc"
+                  className="text-[#F8FAFC] focus:bg-[#334155]"
+                >
+                  Longest First
+                </SelectItem>
+                <SelectItem
+                  value="title-asc"
+                  className="text-[#F8FAFC] focus:bg-[#334155]"
+                >
+                  Title A-Z
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -196,18 +267,27 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
       <main className="p-6 max-w-6xl mx-auto">
         <div className="space-y-4">
           {filteredSessions.map((session) => (
-            <Card key={session.id} className="bg-[#1E293B] border-[#334155] hover:bg-[#334155] transition-colors">
+            <Card
+              key={session.id}
+              className="bg-[#1E293B] border-[#334155] hover:bg-[#334155] transition-colors"
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <Badge className={`${getTypeColor(session.type)} text-white text-xs`}>
+                      <Badge
+                        className={`${getTypeColor(
+                          session.type
+                        )} text-white text-xs`}
+                      >
                         {getTypeIcon(session.type)} {session.type}
                       </Badge>
                       <div className="flex items-center gap-4 text-sm text-[#94A3B8]">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
-                          <span>{session.date} at {session.time}</span>
+                          <span>
+                            {session.date} at {session.time}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="w-4 h-4" />
@@ -215,8 +295,12 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
                         </div>
                       </div>
                     </div>
-                    <h3 className="font-semibold text-[#F8FAFC] mb-2">{session.title}</h3>
-                    <p className="text-[#94A3B8] text-sm line-clamp-2">{session.summary}</p>
+                    <h3 className="font-semibold text-[#F8FAFC] mb-2">
+                      {session.title}
+                    </h3>
+                    <p className="text-[#94A3B8] text-sm line-clamp-2">
+                      {session.summary}
+                    </p>
                   </div>
                 </div>
               </CardHeader>
@@ -244,7 +328,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => onNavigate('session-detail', session.id)}
+                      onClick={() => onNavigate("session-detail", session.id)}
                       className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
                     >
                       <Play className="w-4 h-4 mr-1" />
@@ -261,8 +345,12 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
               <div className="w-16 h-16 mx-auto mb-4 bg-[#334155] rounded-full flex items-center justify-center">
                 <Search className="w-8 h-8 text-[#94A3B8]" />
               </div>
-              <h3 className="text-[#F8FAFC] font-medium mb-2">No sessions found</h3>
-              <p className="text-[#94A3B8]">Try adjusting your search or filters</p>
+              <h3 className="text-[#F8FAFC] font-medium mb-2">
+                No sessions found
+              </h3>
+              <p className="text-[#94A3B8]">
+                Try adjusting your search or filters
+              </p>
             </div>
           )}
         </div>

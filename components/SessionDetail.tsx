@@ -1,12 +1,31 @@
-import { useState, useEffect } from 'react';
-import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
-import { Input } from './ui/input';
-import { ArrowLeft, Download, Edit3, Trash2, Calendar, Clock, MessageSquare, Bot, Search, Mic } from 'lucide-react';
-import { getSessionById, updateSession, deleteSession as deleteSessionService, TranscriptionSession } from '../src/services/dataStorageService';
+import { useState, useEffect } from "react";
+import { Button } from "./ui/button";
+import { Card, CardContent } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
+import {
+  ArrowLeft,
+  Download,
+  Edit3,
+  Trash2,
+  Calendar,
+  Clock,
+  MessageSquare,
+  Bot,
+  Search,
+  Mic,
+} from "lucide-react";
+import {
+  getSessionById,
+  updateSession,
+  deleteSession as deleteSessionService,
+  TranscriptionSession,
+} from "../src/services/dataStorageService";
 
-type NavigateFunction = (page: 'dashboard' | 'live' | 'settings' | 'sessions' | 'session-detail', sessionId?: string) => void;
+type NavigateFunction = (
+  page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
+  sessionId?: string
+) => void;
 
 interface SessionDetailProps {
   onNavigate: NavigateFunction;
@@ -15,8 +34,8 @@ interface SessionDetailProps {
 
 export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [editedTitle, setEditedTitle] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [session, setSession] = useState<TranscriptionSession | null>(null);
 
   useEffect(() => {
@@ -30,10 +49,13 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
   }, [sessionId]);
 
   const handleDeleteSession = async () => {
-    if (session && window.confirm('Are you sure you want to delete this session?')) {
+    if (
+      session &&
+      window.confirm("Are you sure you want to delete this session?")
+    ) {
       const success = deleteSessionService(session.id);
       if (success) {
-        onNavigate('sessions');
+        onNavigate("sessions");
       }
     }
   };
@@ -42,14 +64,18 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
     return (
       <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-[#F8FAFC] mb-2">Session not found</h2>
-          <Button onClick={() => onNavigate('sessions')}>Back to Sessions</Button>
+          <h2 className="text-xl font-semibold text-[#F8FAFC] mb-2">
+            Session not found
+          </h2>
+          <Button onClick={() => onNavigate("sessions")}>
+            Back to Sessions
+          </Button>
         </div>
       </div>
     );
   }
 
-  const filteredTranscript = session.transcript.filter(item =>
+  const filteredTranscript = session.transcript.filter((item) =>
     item.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -57,7 +83,9 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
     if (isEditing) {
       // Save the edited title
       if (session) {
-        const updatedSession = updateSession(session.id, { title: editedTitle });
+        const updatedSession = updateSession(session.id, {
+          title: editedTitle,
+        });
         if (updatedSession) {
           setSession(updatedSession);
         }
@@ -74,19 +102,27 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'lecture': return 'bg-blue-500';
-      case 'meeting': return 'bg-green-500';
-      case 'interview': return 'bg-purple-500';
-      default: return 'bg-gray-500';
+      case "lecture":
+        return "bg-blue-500";
+      case "meeting":
+        return "bg-green-500";
+      case "interview":
+        return "bg-purple-500";
+      default:
+        return "bg-gray-500";
     }
   };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'lecture': return '🎓';
-      case 'meeting': return '🏢';
-      case 'interview': return '🎤';
-      default: return '📄';
+      case "lecture":
+        return "🎓";
+      case "meeting":
+        return "🏢";
+      case "interview":
+        return "🎤";
+      default:
+        return "📄";
     }
   };
 
@@ -98,7 +134,7 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onNavigate('sessions')}
+            onClick={() => onNavigate("sessions")}
             className="text-[#F8FAFC] hover:bg-[#1E293B]"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -110,7 +146,7 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
             <h1 className="text-xl font-semibold">Session Detail</h1>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -144,12 +180,22 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
                     onChange={(e) => setEditedTitle(e.target.value)}
                     className="text-xl font-semibold bg-[#0F172A] border-[#334155] text-[#F8FAFC]"
                   />
-                  <Button size="sm" onClick={handleTitleEdit}>Save</Button>
-                  <Button size="sm" variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+                  <Button size="sm" onClick={handleTitleEdit}>
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsEditing(false)}
+                  >
+                    Cancel
+                  </Button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 mb-2">
-                  <h2 className="text-xl font-semibold text-[#F8FAFC]">{session.title}</h2>
+                  <h2 className="text-xl font-semibold text-[#F8FAFC]">
+                    {session.title}
+                  </h2>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -160,14 +206,18 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
                   </Button>
                 </div>
               )}
-              
+
               <div className="flex items-center gap-4 text-sm text-[#94A3B8]">
-                <Badge className={`${getTypeColor(session.type)} text-white text-xs`}>
+                <Badge
+                  className={`${getTypeColor(session.type)} text-white text-xs`}
+                >
                   {getTypeIcon(session.type)} {session.type}
                 </Badge>
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
-                  <span>{session.date} at {session.startTime}</span>
+                  <span>
+                    {session.date} at {session.startTime}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
@@ -178,15 +228,24 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
 
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-lg font-semibold text-[#3B82F6]">{session.questionsCount}</div>
+                <div className="text-lg font-semibold text-[#3B82F6]">
+                  {session.questionsCount}
+                </div>
                 <div className="text-xs text-[#94A3B8]">Questions</div>
               </div>
               <div>
-                <div className="text-lg font-semibold text-[#6D28D9]">{session.wordsCount.toLocaleString()}</div>
+                <div className="text-lg font-semibold text-[#6D28D9]">
+                  {session.wordsCount.toLocaleString()}
+                </div>
                 <div className="text-xs text-[#94A3B8]">Words</div>
               </div>
               <div>
-                <div className="text-lg font-semibold text-[#10B981]">{session.transcript.filter(t => t.type === 'ai_response').length}</div>
+                <div className="text-lg font-semibold text-[#10B981]">
+                  {
+                    session.transcript.filter((t) => t.type === "ai_response")
+                      .length
+                  }
+                </div>
                 <div className="text-xs text-[#94A3B8]">AI Answers</div>
               </div>
             </div>
@@ -210,54 +269,75 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
         <div className="space-y-4">
           {filteredTranscript.map((item) => (
             <div key={item.id} className="space-y-2">
-              {item.type === 'speech' && (
+              {item.type === "speech" && (
                 <div className="flex gap-3">
                   <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-                    {item.speaker?.charAt(0) || 'S'}
+                    {item.speaker?.charAt(0) || "S"}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-[#F8FAFC]">{item.speaker}:</span>
-                      <span className="text-xs text-[#94A3B8]">{formatTime(item.timestamp)}</span>
+                      <span className="font-medium text-[#F8FAFC]">
+                        {item.speaker}:
+                      </span>
+                      <span className="text-xs text-[#94A3B8]">
+                        {formatTime(item.timestamp)}
+                      </span>
                     </div>
-                    <p className="text-[#F8FAFC] leading-relaxed">{item.content}</p>
+                    <p className="text-[#F8FAFC] leading-relaxed">
+                      {item.content}
+                    </p>
                   </div>
                 </div>
               )}
 
-              {item.type === 'question' && (
+              {item.type === "question" && (
                 <Card className="bg-[#1E3A8A]/20 border-[#3B82F6] ml-4">
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <MessageSquare className="w-5 h-5 text-[#3B82F6] mt-1 flex-shrink-0" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium text-[#3B82F6]">Question Detected:</span>
-                          <span className="text-xs text-[#94A3B8]">{formatTime(item.timestamp)}</span>
+                          <span className="font-medium text-[#3B82F6]">
+                            Question Detected:
+                          </span>
+                          <span className="text-xs text-[#94A3B8]">
+                            {formatTime(item.timestamp)}
+                          </span>
                         </div>
-                        <p className="text-[#F8FAFC] leading-relaxed">{item.content}</p>
+                        <p className="text-[#F8FAFC] leading-relaxed">
+                          {item.content}
+                        </p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               )}
 
-              {item.type === 'ai_response' && (
+              {item.type === "ai_response" && (
                 <Card className="bg-[#581C87]/20 border-[#6D28D9] ml-8">
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <Bot className="w-5 h-5 text-[#6D28D9] mt-1 flex-shrink-0" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium text-[#6D28D9]">AI Answer:</span>
-                          <span className="text-xs text-[#94A3B8]">{formatTime(item.timestamp)}</span>
+                          <span className="font-medium text-[#6D28D9]">
+                            AI Answer:
+                          </span>
+                          <span className="text-xs text-[#94A3B8]">
+                            {formatTime(item.timestamp)}
+                          </span>
                           {item.confidence && (
-                            <Badge variant="outline" className="text-xs border-[#6D28D9] text-[#6D28D9]">
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-[#6D28D9] text-[#6D28D9]"
+                            >
                               {item.confidence}% confidence
                             </Badge>
                           )}
                         </div>
-                        <p className="text-[#F8FAFC] leading-relaxed">{item.content}</p>
+                        <p className="text-[#F8FAFC] leading-relaxed">
+                          {item.content}
+                        </p>
                         <div className="mt-2 text-xs text-[#6B7280]">
                           Generated by GPT-4
                         </div>
@@ -274,8 +354,12 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
               <div className="w-16 h-16 mx-auto mb-4 bg-[#334155] rounded-full flex items-center justify-center">
                 <Search className="w-8 h-8 text-[#94A3B8]" />
               </div>
-              <h3 className="text-[#F8FAFC] font-medium mb-2">No results found</h3>
-              <p className="text-[#94A3B8]">Try searching for different terms</p>
+              <h3 className="text-[#F8FAFC] font-medium mb-2">
+                No results found
+              </h3>
+              <p className="text-[#94A3B8]">
+                Try searching for different terms
+              </p>
             </div>
           )}
         </div>
