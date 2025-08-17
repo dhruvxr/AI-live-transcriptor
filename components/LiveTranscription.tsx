@@ -1,9 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 // import logoUrl from "../src/assets/Logo.svg";
-import {
-  startTranscription,
-  stopTranscription,
-} from "../src/services/azureSpeechService";
+import { azureSpeechService } from "../src/services/realAzureSpeechService";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Card, CardContent } from "./ui/card";
@@ -19,6 +16,7 @@ import {
   Clock,
   HelpCircle,
   Send,
+  Save,
 } from "lucide-react";
 import {
   Dialog,
@@ -30,21 +28,29 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import { getAIResponseStream } from "../src/services/aiService";
-import {
-  detectQuestionWithConfidence,
-  generateQuestionResponse,
-} from "../src/services/questionDetectionService";
+// import { getAIResponseStream } from "../src/services/azureOpenAIService-fixed";
+// import {
+//   detectQuestionWithConfidence,
+//   generateQuestionResponse,
+// } from "../src/services/realQuestionDetectionService";
 import {
   createSession,
   updateSession,
 } from "../src/services/dataStorageService";
-import {
-  downloadAsText,
-  downloadAsPdf,
-  downloadAsWord,
-  TranscriptData,
-} from "../src/services/downloadService";
+// import {
+//   downloadAsText,
+//   downloadAsPdf,
+//   downloadAsWord,
+//   TranscriptData,
+// } from "../src/services/realExportService";
+
+// Simple interface for transcript data (temporary)
+// interface TranscriptData {
+//   title: string;
+//   content: string;
+//   timestamp: string;
+//   duration: string;
+// }
 
 type NavigateFunction = (
   page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
@@ -141,29 +147,35 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     setIsGeneratingClarification(true);
     setClarificationAnswer("");
 
-    const prompt = `Based on the following transcribed text, please answer the user's question clearly and concisely.
-    
-    Context: "${selectedTranscriptForClarification.content}"
-    Question: "${clarificationQuestion}"
-    
-    Please provide a helpful explanation or clarification.`;
-
-    getAIResponseStream(
-      prompt,
-      (chunk) => {
-        setClarificationAnswer((prev) => prev + chunk);
-      },
-      () => {
-        setIsGeneratingClarification(false);
-      },
-      (error) => {
-        console.error("Error getting AI clarification:", error);
-        setClarificationAnswer(
-          "Sorry, I encountered an error while generating the answer."
-        );
-        setIsGeneratingClarification(false);
-      }
+    // Temporarily disabled - AI functionality needs to be fixed
+    setClarificationAnswer(
+      "AI clarification is temporarily disabled. Please try again later."
     );
+    setIsGeneratingClarification(false);
+
+    // const prompt = `Based on the following transcribed text, please answer the user's question clearly and concisely.
+
+    // Context: "${selectedTranscriptForClarification.content}"
+    // Question: "${clarificationQuestion}"
+
+    // Please provide a helpful explanation or clarification.`;
+
+    // getAIResponseStream(
+    //   prompt,
+    //   (chunk) => {
+    //     setClarificationAnswer((prev) => prev + chunk);
+    //   },
+    //   () => {
+    //     setIsGeneratingClarification(false);
+    //   },
+    //   (error) => {
+    //     console.error("Error getting AI clarification:", error);
+    //     setClarificationAnswer(
+    //       "Sorry, I encountered an error while generating the answer."
+    //     );
+    //     setIsGeneratingClarification(false);
+    //   }
+    // );
   };
 
   // Quick question handler (for asking about recent transcript)
@@ -173,37 +185,43 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     setIsGeneratingQuickAnswer(true);
     setQuickAnswer("");
 
-    // Get the last few transcript items for context
-    const recentContext = transcript
-      .slice(-5) // Last 5 items
-      .map((item) => `${item.speaker}: ${item.content}`)
-      .join("\n");
-
-    const prompt = `Based on the following recent conversation transcript, please answer the user's question:
-    
-    Recent Context:
-    ${recentContext}
-    
-    Question: "${quickQuestion}"
-    
-    Please provide a helpful answer based on what was recently discussed.`;
-
-    getAIResponseStream(
-      prompt,
-      (chunk) => {
-        setQuickAnswer((prev) => prev + chunk);
-      },
-      () => {
-        setIsGeneratingQuickAnswer(false);
-      },
-      (error) => {
-        console.error("Error getting quick answer:", error);
-        setQuickAnswer(
-          "Sorry, I encountered an error while generating the answer."
-        );
-        setIsGeneratingQuickAnswer(false);
-      }
+    // Temporarily disabled - AI functionality needs to be fixed
+    setQuickAnswer(
+      "AI quick answers are temporarily disabled. Please try again later."
     );
+    setIsGeneratingQuickAnswer(false);
+
+    // // Get the last few transcript items for context
+    // const recentContext = transcript
+    //   .slice(-5) // Last 5 items
+    //   .map((item) => `${item.speaker}: ${item.content}`)
+    //   .join("\n");
+
+    // const prompt = `Based on the following recent conversation transcript, please answer the user's question:
+
+    // Recent Context:
+    // ${recentContext}
+
+    // Question: "${quickQuestion}"
+
+    // Please provide a helpful answer based on what was recently discussed.`;
+
+    // getAIResponseStream(
+    //   prompt,
+    //   (chunk) => {
+    //     setQuickAnswer((prev) => prev + chunk);
+    //   },
+    //   () => {
+    //     setIsGeneratingQuickAnswer(false);
+    //   },
+    //   (error) => {
+    //     console.error("Error getting quick answer:", error);
+    //     setQuickAnswer(
+    //       "Sorry, I encountered an error while generating the answer."
+    //     );
+    //     setIsGeneratingQuickAnswer(false);
+    //   }
+    // );
   };
 
   const handleTranscriptionUpdate = async (text: string, isFinal: boolean) => {
@@ -304,7 +322,9 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       }
 
       // Check if this is a question using enhanced detection
-      const questionResult = await detectQuestionWithConfidence(cleanText);
+      // Temporarily disabled - question detection needs to be fixed
+      const questionResult = { isQuestion: false, confidence: 0 };
+      // const questionResult = await detectQuestionWithConfidence(cleanText);
 
       // Create the transcript item
       const transcriptItem: TranscriptItem = {
@@ -325,7 +345,12 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
         setIsGeneratingAnswer(true);
 
         try {
-          const aiResponseResult = await generateQuestionResponse(cleanText);
+          // Temporarily disabled - AI response generation needs to be fixed
+          const aiResponseResult = {
+            response: "AI responses are temporarily disabled.",
+            confidence: 0,
+          };
+          // const aiResponseResult = await generateQuestionResponse(cleanText);
 
           // Add AI response to transcript
           const aiResponseItem: TranscriptItem = {
@@ -423,11 +448,14 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
   const startService = () => {
     setError(null);
     // A new final transcript segment will be created on each start.
-    startTranscription(handleTranscriptionUpdate, handleTranscriptionError);
+    azureSpeechService.startRecording((result) => {
+      // Adapter to match the expected signature
+      handleTranscriptionUpdate(result.text, true); // Always treat as final
+    }, handleTranscriptionError);
   };
 
   const stopService = () => {
-    stopTranscription();
+    azureSpeechService.stopRecording();
   };
 
   const handleStartSession = async () => {
@@ -561,16 +589,21 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       return;
     }
 
-    const transcriptData: TranscriptData = {
-      title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
-      content: transcript
-        .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
-        .join("\n"),
-      timestamp: new Date().toISOString(),
-      duration: calculateDuration(),
-    };
+    // Temporarily disabled - export functionality needs to be fixed
+    alert(
+      "Export functionality is temporarily disabled. Use the Save button to save transcripts to sessions."
+    );
 
-    downloadAsText(transcriptData);
+    // const transcriptData: TranscriptData = {
+    //   title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
+    //   content: transcript
+    //     .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
+    //     .join("\n"),
+    //   timestamp: new Date().toISOString(),
+    //   duration: calculateDuration(),
+    // };
+
+    // downloadAsText(transcriptData);
   };
 
   const handleExportAsPdf = () => {
@@ -579,16 +612,21 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       return;
     }
 
-    const transcriptData: TranscriptData = {
-      title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
-      content: transcript
-        .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
-        .join("\n"),
-      timestamp: new Date().toISOString(),
-      duration: calculateDuration(),
-    };
+    // Temporarily disabled - export functionality needs to be fixed
+    alert(
+      "Export functionality is temporarily disabled. Use the Save button to save transcripts to sessions."
+    );
 
-    downloadAsPdf(transcriptData);
+    // const transcriptData: TranscriptData = {
+    //   title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
+    //   content: transcript
+    //     .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
+    //     .join("\n"),
+    //   timestamp: new Date().toISOString(),
+    //   duration: calculateDuration(),
+    // };
+
+    // downloadAsPdf(transcriptData);
   };
 
   const handleExportAsWord = async () => {
@@ -597,34 +635,104 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       return;
     }
 
-    const transcriptData: TranscriptData = {
-      title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
-      content: transcript
-        .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
-        .join("\n"),
-      timestamp: new Date().toISOString(),
-      duration: calculateDuration(),
-    };
+    // Temporarily disabled - export functionality needs to be fixed
+    alert(
+      "Export functionality is temporarily disabled. Use the Save button to save transcripts to sessions."
+    );
 
-    await downloadAsWord(transcriptData);
+    // const transcriptData: TranscriptData = {
+    //   title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
+    //   content: transcript
+    //     .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
+    //     .join("\n"),
+    //   timestamp: new Date().toISOString(),
+    //   duration: calculateDuration(),
+    // };
+
+    // await downloadAsWord(transcriptData);
   };
 
-  const calculateDuration = (): string => {
-    if (transcript.length === 0) return "0m";
+  const handleSaveTranscript = () => {
+    if (transcript.length === 0) {
+      alert("No transcript data to save");
+      return;
+    }
 
-    const startTime = transcript[0]?.timestamp;
-    const endTime = transcript[transcript.length - 1]?.timestamp;
+    try {
+      // Calculate session duration
+      const currentTime = new Date();
+      const startTimeObj = sessionStartTime || new Date();
+      const durationMs = currentTime.getTime() - startTimeObj.getTime();
+      const durationMinutes = Math.round(durationMs / 60000);
+      const durationHours = Math.floor(durationMinutes / 60);
+      const remainingMinutes = durationMinutes % 60;
+      const durationString =
+        durationHours > 0
+          ? `${durationHours}h ${remainingMinutes}m`
+          : `${remainingMinutes}m`;
 
-    if (!startTime || !endTime) return "0m";
+      // Convert transcript items to the format expected by dataStorageService
+      const transcriptData = transcript.map((item) => ({
+        id: item.id,
+        type:
+          item.type === "answer"
+            ? ("ai_response" as const)
+            : item.type === "question"
+            ? ("question" as const)
+            : ("speech" as const),
+        content: item.content,
+        timestamp: item.timestamp.toISOString(),
+        confidence: item.confidence,
+        speaker: item.speaker,
+      }));
 
-    const durationMs = endTime.getTime() - startTime.getTime();
-    const minutes = Math.floor(durationMs / 60000);
-    const seconds = Math.floor((durationMs % 60000) / 1000);
+      const title =
+        sessionTitle ||
+        `Saved Transcript ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
 
-    if (minutes === 0) return `${seconds}s`;
-    if (seconds === 0) return `${minutes}m`;
-    return `${minutes}m ${seconds}s`;
+      // Create a new session with the current transcript
+      const session = createSession({
+        title,
+        date: new Date().toISOString().split("T")[0],
+        startTime:
+          sessionStartTime?.toLocaleTimeString() ||
+          new Date().toLocaleTimeString(),
+        endTime: currentTime.toLocaleTimeString(),
+        duration: durationString,
+        type: "other",
+        transcript: transcriptData,
+        summary:
+          transcript.length > 0
+            ? `Saved session with ${transcript.length} transcript items`
+            : "Empty session",
+      });
+
+      if (session) {
+        alert(`Transcript saved successfully as "${session.title}"`);
+        console.log("Transcript saved as new session:", session.title);
+      }
+    } catch (error) {
+      console.error("Error saving transcript:", error);
+      alert("Failed to save transcript. Please try again.");
+    }
   };
+
+  // const calculateDuration = (): string => {
+  //   if (transcript.length === 0) return "0m";
+
+  //   const startTime = transcript[0]?.timestamp;
+  //   const endTime = transcript[transcript.length - 1]?.timestamp;
+
+  //   if (!startTime || !endTime) return "0m";
+
+  //   const durationMs = endTime.getTime() - startTime.getTime();
+  //   const minutes = Math.floor(durationMs / 60000);
+  //   const seconds = Math.floor((durationMs % 60000) / 1000);
+
+  //   if (minutes === 0) return `${seconds}s`;
+  //   if (seconds === 0) return `${minutes}m`;
+  //   return `${minutes}m ${seconds}s`;
+  // };
 
   if (error) {
     return (
@@ -673,14 +781,28 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
           <p className="text-lg text-[#94A3B8] mb-8">
             Press the button to start your live transcription session.
           </p>
-          <Button
-            onClick={handleStartSession}
-            size="lg"
-            className="bg-green-500 hover:bg-green-600 text-white"
-          >
-            <Mic className="w-6 h-6 mr-2" />
-            Start Session
-          </Button>
+          <div className="flex flex-col items-center gap-4">
+            <Button
+              onClick={handleStartSession}
+              size="lg"
+              className="bg-green-500 hover:bg-green-600 text-white"
+            >
+              <Mic className="w-6 h-6 mr-2" />
+              Start Session
+            </Button>
+
+            <Button
+              onClick={handleSaveTranscript}
+              variant="outline"
+              size="sm"
+              className="text-[#F8FAFC] bg-blue-600 hover:bg-blue-700 border-blue-500"
+              disabled={transcript.length === 0}
+              title="Save transcript to sessions"
+            >
+              <Save className="w-4 h-4 mr-1" />
+              Save Transcript
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -1192,6 +1314,18 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
             </Button>
 
             <div className="flex gap-2">
+              <Button
+                onClick={handleSaveTranscript}
+                variant="outline"
+                size="sm"
+                className="text-[#F8FAFC] bg-blue-600 hover:bg-blue-700 border-blue-500"
+                disabled={transcript.length === 0}
+                title="Save transcript to sessions"
+              >
+                <Save className="w-4 h-4 mr-1" />
+                Save
+              </Button>
+
               <Button
                 onClick={handleExportAsText}
                 variant="outline"

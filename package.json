@@ -5,9 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:host": "vite --host",
     "build": "tsc && vite build",
+    "build:clean": "rm -rf dist && npm run build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf node_modules dist .vite",
+    "setup": "npm install && npm run type-check",
+    "start": "npm run dev"
   },
   "dependencies": {
     "@azure/core-auth": "^1.10.0",
