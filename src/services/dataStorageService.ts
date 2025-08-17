@@ -22,70 +22,80 @@ export interface TranscriptItem {
   speaker?: string;
 }
 
+// LocalStorage helpers
+const STORAGE_KEY = "ai-transcriptor-sessions";
+
+const saveToLocalStorage = () => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  } catch (error) {
+    console.error("Failed to save sessions to localStorage:", error);
+  }
+};
+
+const loadFromLocalStorage = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsedSessions = JSON.parse(stored);
+      if (Array.isArray(parsedSessions)) {
+        sessions = parsedSessions;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load sessions from localStorage:", error);
+  }
+};
+
 // In-memory storage for now (can be replaced with IndexedDB or API calls)
-let sessions: TranscriptionSession[] = [
-  {
-    id: "1",
-    title: "Biology Lecture - Cell Structure",
-    date: "2025-08-06",
-    startTime: "14:30",
-    endTime: "16:15",
-    duration: "1h 45m",
-    type: "lecture",
-    questionsCount: 12,
-    wordsCount: 4250,
-    summary:
-      "Comprehensive lecture on cellular biology covering organelles, membrane structure...",
-    tags: ["biology", "cells", "education"],
-    transcript: [
-      {
-        id: "1",
-        type: "speech",
-        content: "Welcome everyone to today's lecture on cellular structure...",
-        timestamp: "14:30:00",
-        confidence: 0.95,
-      },
-      {
-        id: "2",
-        type: "question",
-        content: "What is the main function of mitochondria?",
-        timestamp: "14:35:22",
-        confidence: 0.88,
-      },
-      {
-        id: "3",
-        type: "ai_response",
-        content:
-          "Mitochondria are the powerhouses of the cell, responsible for producing ATP through cellular respiration...",
-        timestamp: "14:35:25",
-        confidence: 1.0,
-      },
-    ],
-  },
-  {
-    id: "2",
-    title: "Team Meeting - Project Review",
-    date: "2025-08-05",
-    startTime: "10:00",
-    endTime: "10:45",
-    duration: "45m",
-    type: "meeting",
-    questionsCount: 8,
-    wordsCount: 2800,
-    summary:
-      "Weekly project review discussing progress, blockers, and next steps...",
-    tags: ["meeting", "project", "review"],
-    transcript: [
-      {
-        id: "1",
-        type: "speech",
-        content: "Let's start with the project status update...",
-        timestamp: "10:00:00",
-        confidence: 0.92,
-      },
-    ],
-  },
-];
+let sessions: TranscriptionSession[] = [];
+
+// Initialize by loading from localStorage
+const initializeSessions = () => {
+  // First, clear any existing dummy data keys from localStorage
+  const dummyKeys = [
+    "ai-transcriptor-sessions",
+    "transcription-sessions",
+    "ai-transcriptor",
+    "transcription",
+  ];
+
+  dummyKeys.forEach((key) => {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        if (Array.isArray(data)) {
+          const hasDummyData = data.some(
+            (session) =>
+              session.title === "Biology Lecture - Cell Structure" ||
+              session.title === "Team Meeting - Project Review" ||
+              session.title === "Session 1" ||
+              session.title === "Session 2" ||
+              session.title === "Session 3" ||
+              session.id === "1" ||
+              session.id === "2" ||
+              session.id === "3"
+          );
+
+          if (hasDummyData) {
+            console.log(`Clearing dummy data from localStorage key: ${key}`);
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (e) {
+        // If parsing fails, remove the corrupted data
+        localStorage.removeItem(key);
+      }
+    }
+  });
+
+  // Now load fresh data from localStorage
+  loadFromLocalStorage();
+};
+
+// Initialize on module load
+initializeSessions();
 
 // Create a new session
 export const createSession = (
@@ -265,27 +275,28 @@ export const getSessionStats = () => {
   };
 };
 
-// LocalStorage helpers
-const STORAGE_KEY = "ai-transcriptor-sessions";
+// Utility function to completely clear dummy data (for debugging)
+export const clearAllDummyData = () => {
+  console.log("Manually clearing all dummy data...");
 
-const saveToLocalStorage = () => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-  } catch (error) {
-    console.error("Failed to save sessions to localStorage:", error);
-  }
-};
-
-const loadFromLocalStorage = () => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsedSessions = JSON.parse(stored);
-      if (Array.isArray(parsedSessions)) {
-        sessions = parsedSessions;
-      }
+  // Clear all localStorage keys that might contain session data
+  const allKeys = Object.keys(localStorage);
+  allKeys.forEach((key) => {
+    if (
+      key.includes("ai-transcriptor") ||
+      key.includes("transcription") ||
+      key.includes("session")
+    ) {
+      console.log(`Removing localStorage key: ${key}`);
+      localStorage.removeItem(key);
     }
-  } catch (error) {
-    console.error("Failed to load sessions from localStorage:", error);
-  }
+  });
+
+  // Reset in-memory sessions
+  sessions = [];
+
+  // Save empty array to localStorage
+  saveToLocalStorage();
+
+  console.log("All dummy data cleared successfully");
 };

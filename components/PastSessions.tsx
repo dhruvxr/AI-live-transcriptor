@@ -24,6 +24,7 @@ import {
 import {
   getAllSessions,
   deleteSession,
+  clearAllDummyData,
 } from "../src/services/dataStorageService";
 
 type NavigateFunction = (
@@ -54,6 +55,9 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
 
   useEffect(() => {
+    // Clear any dummy data first (one-time cleanup)
+    clearAllDummyData();
+
     // Load sessions from storage on component mount
     const loadSessions = () => {
       const storedSessions = getAllSessions();

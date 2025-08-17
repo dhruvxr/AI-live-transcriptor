@@ -1,13 +1,45 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dashboard } from "../components/Dashboard";
 import { Settings } from "../components/Settings";
 import { PastSessions } from "../components/PastSessions";
+import {
+  getAllSessions,
+  getSessionStats,
+  clearAllDummyData,
+} from "./services/dataStorageService";
 import { azureSpeechService } from "./services/realAzureSpeechService";
 import { questionDetectionService } from "./services/realQuestionDetectionService";
 import { exportService } from "./services/realExportService";
 
 // Simple test component for Sessions Page
 function SimpleSessionsPage({ onNavigate }: { onNavigate: any }) {
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalSessions: 0,
+    totalHours: 0,
+    totalWords: 0,
+  });
+
+  useEffect(() => {
+    // Load sessions and stats from dataStorageService
+    const loadData = () => {
+      // Clear any dummy data first (comprehensive cleanup)
+      clearAllDummyData();
+
+      const allSessions = getAllSessions();
+      setSessions(allSessions);
+
+      const sessionStats = getSessionStats();
+      setStats({
+        totalSessions: sessionStats.totalSessions,
+        totalHours: sessionStats.totalHours,
+        totalWords: sessionStats.totalWords,
+      });
+    };
+
+    loadData();
+  }, []);
+
   return (
     <div
       style={{
@@ -56,69 +88,101 @@ function SimpleSessionsPage({ onNavigate }: { onNavigate: any }) {
             Recent Sessions
           </h2>
           <div style={{ display: "grid", gap: "1rem" }}>
-            {[1, 2, 3].map((session) => (
-              <div
-                key={session}
-                style={{
-                  backgroundColor: "#334155",
-                  padding: "1.5rem",
-                  borderRadius: "8px",
-                  border: "1px solid #475569",
-                }}
-              >
+            {sessions.length > 0 ? (
+              sessions.slice(0, 10).map((session) => (
                 <div
+                  key={session.id}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
+                    backgroundColor: "#334155",
+                    padding: "1.5rem",
+                    borderRadius: "8px",
+                    border: "1px solid #475569",
                   }}
                 >
-                  <div>
-                    <h3
-                      style={{
-                        fontSize: "1.125rem",
-                        fontWeight: "600",
-                        marginBottom: "0.5rem",
-                      }}
-                    >
-                      Session {session}
-                    </h3>
-                    <p style={{ color: "#94A3B8", fontSize: "0.875rem" }}>
-                      Duration: {10 + session} minutes • Created: Jan{" "}
-                      {session + 10}, 2024
-                    </p>
-                  </div>
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button
-                      style={{
-                        backgroundColor: "#3B82F6",
-                        color: "white",
-                        padding: "0.5rem 1rem",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      View
-                    </button>
-                    <button
-                      style={{
-                        backgroundColor: "#10B981",
-                        color: "white",
-                        padding: "0.5rem 1rem",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      Export
-                    </button>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div>
+                      <h3
+                        style={{
+                          fontSize: "1.125rem",
+                          fontWeight: "600",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        {session.title}
+                      </h3>
+                      <p style={{ color: "#94A3B8", fontSize: "0.875rem" }}>
+                        Duration: {session.duration} • Created: {session.date}
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        onClick={() => onNavigate("session-detail", session.id)}
+                        style={{
+                          backgroundColor: "#3B82F6",
+                          color: "white",
+                          padding: "0.5rem 1rem",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        View
+                      </button>
+                      <button
+                        style={{
+                          backgroundColor: "#10B981",
+                          color: "white",
+                          padding: "0.5rem 1rem",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        Export
+                      </button>
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "3rem",
+                  color: "#94A3B8",
+                }}
+              >
+                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎤</div>
+                <h3 style={{ fontSize: "1.25rem", marginBottom: "0.5rem" }}>
+                  No sessions yet
+                </h3>
+                <p style={{ marginBottom: "1.5rem" }}>
+                  Start your first transcription session to see it here
+                </p>
+                <button
+                  onClick={() => onNavigate("live")}
+                  style={{
+                    backgroundColor: "#3B82F6",
+                    color: "white",
+                    padding: "0.75rem 1.5rem",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "1rem",
+                  }}
+                >
+                  Start Recording
+                </button>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -154,7 +218,7 @@ function SimpleSessionsPage({ onNavigate }: { onNavigate: any }) {
                   color: "#3B82F6",
                 }}
               >
-                12
+                {stats.totalSessions}
               </div>
               <div style={{ color: "#94A3B8", fontSize: "0.875rem" }}>
                 Total Sessions
@@ -175,7 +239,7 @@ function SimpleSessionsPage({ onNavigate }: { onNavigate: any }) {
                   color: "#10B981",
                 }}
               >
-                4.2h
+                {stats.totalHours}h
               </div>
               <div style={{ color: "#94A3B8", fontSize: "0.875rem" }}>
                 Total Time
@@ -196,10 +260,10 @@ function SimpleSessionsPage({ onNavigate }: { onNavigate: any }) {
                   color: "#F59E0B",
                 }}
               >
-                247
+                {stats.totalWords}
               </div>
               <div style={{ color: "#94A3B8", fontSize: "0.875rem" }}>
-                Questions Asked
+                Total Words
               </div>
             </div>
           </div>

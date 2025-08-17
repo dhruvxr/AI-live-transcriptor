@@ -6,6 +6,7 @@ import { Mic, FileText, Settings, BarChart3, Clock, Zap } from "lucide-react";
 import {
   getAllSessions,
   getSessionStats,
+  clearAllDummyData,
 } from "../src/services/dataStorageService";
 
 type NavigateFunction = (
@@ -26,6 +27,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
 
   useEffect(() => {
+    // Clear any dummy data first (one-time cleanup)
+    clearAllDummyData();
+
     // Load stats and recent sessions from storage
     const sessionStats = getSessionStats();
     setStats({
