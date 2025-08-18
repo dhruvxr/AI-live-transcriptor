@@ -7,7 +7,11 @@ export interface TranscriptData {
 }
 
 // Simple file download helper
-function downloadFile(content: string, filename: string, mimeType: string): void {
+function downloadFile(
+  content: string,
+  filename: string,
+  mimeType: string
+): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
 
@@ -39,32 +43,34 @@ ${data.content}`;
 export function downloadAsPdf(data: TranscriptData): void {
   try {
     // Dynamic import to avoid loading jsPDF if not needed
-    import('jspdf').then(({ jsPDF }) => {
-      const doc = new jsPDF();
-      
-      // Title
-      doc.setFontSize(20);
-      doc.text(data.title, 20, 20);
-      
-      // Metadata
-      doc.setFontSize(12);
-      doc.text(`Timestamp: ${data.timestamp}`, 20, 40);
-      doc.text(`Duration: ${data.duration}`, 20, 50);
-      
-      // Transcript content
-      doc.setFontSize(10);
-      const lines = doc.splitTextToSize(data.content, 170);
-      doc.text(lines, 20, 70);
-      
-      doc.save(`${data.title}.pdf`);
-    }).catch(error => {
-      console.error('Error loading jsPDF:', error);
-      alert('PDF export failed. Downloading as text instead.');
-      downloadAsText(data);
-    });
+    import("jspdf")
+      .then(({ jsPDF }) => {
+        const doc = new jsPDF();
+
+        // Title
+        doc.setFontSize(20);
+        doc.text(data.title, 20, 20);
+
+        // Metadata
+        doc.setFontSize(12);
+        doc.text(`Timestamp: ${data.timestamp}`, 20, 40);
+        doc.text(`Duration: ${data.duration}`, 20, 50);
+
+        // Transcript content
+        doc.setFontSize(10);
+        const lines = doc.splitTextToSize(data.content, 170);
+        doc.text(lines, 20, 70);
+
+        doc.save(`${data.title}.pdf`);
+      })
+      .catch((error) => {
+        console.error("Error loading jsPDF:", error);
+        alert("PDF export failed. Downloading as text instead.");
+        downloadAsText(data);
+      });
   } catch (error) {
-    console.error('Error exporting PDF:', error);
-    alert('PDF export failed. Downloading as text instead.');
+    console.error("Error exporting PDF:", error);
+    alert("PDF export failed. Downloading as text instead.");
     downloadAsText(data);
   }
 }
@@ -73,73 +79,75 @@ export function downloadAsPdf(data: TranscriptData): void {
 export async function downloadAsWord(data: TranscriptData): Promise<void> {
   try {
     // Import the modules directly
-    const docx = await import('docx');
-    const fileSaver = await import('file-saver');
-    
+    const docx = await import("docx");
+    const fileSaver = await import("file-saver");
+
     const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
     const { saveAs } = fileSaver;
-    
+
     const doc = new Document({
-      sections: [{
-        properties: {},
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: data.title,
-                bold: true,
-                size: 28,
-              }),
-            ],
-            heading: HeadingLevel.TITLE,
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Timestamp: ${data.timestamp}`,
-              }),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Duration: ${data.duration}`,
-              }),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "TRANSCRIPT:",
-                bold: true,
-              }),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: data.content,
-              }),
-            ],
-          }),
-        ],
-      }],
+      sections: [
+        {
+          properties: {},
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: data.title,
+                  bold: true,
+                  size: 28,
+                }),
+              ],
+              heading: HeadingLevel.TITLE,
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Timestamp: ${data.timestamp}`,
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Duration: ${data.duration}`,
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "TRANSCRIPT:",
+                  bold: true,
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: data.content,
+                }),
+              ],
+            }),
+          ],
+        },
+      ],
     });
 
     const buffer = await Packer.toBuffer(doc);
-    
+
     // Convert buffer to Uint8Array for blob creation
     const uint8Array = new Uint8Array(buffer);
-    
-    const blob = new Blob([uint8Array], { 
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+
+    const blob = new Blob([uint8Array], {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
-    
+
     saveAs(blob, `${data.title}.docx`);
   } catch (error) {
-    console.error('Error exporting Word document:', error);
-    console.error('Error details:', JSON.stringify(error, null, 2));
-    
+    console.error("Error exporting Word document:", error);
+    console.error("Error details:", JSON.stringify(error, null, 2));
+
     // Fallback: create a simple RTF document that can be opened in Word
     try {
       const rtfContent = `{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}
@@ -150,23 +158,25 @@ Timestamp: ${data.timestamp}\\par
 Duration: ${data.duration}\\par
 \\par
 \\b TRANSCRIPT:\\b0\\par
-${data.content.replace(/\n/g, '\\par ')}
+${data.content.replace(/\n/g, "\\par ")}
 }`;
-      
-      const blob = new Blob([rtfContent], { type: 'application/rtf' });
+
+      const blob = new Blob([rtfContent], { type: "application/rtf" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `${data.title}.rtf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
-      alert('Word export completed as RTF format (compatible with Microsoft Word).');
+
+      alert(
+        "Word export completed as RTF format (compatible with Microsoft Word)."
+      );
     } catch (rtfError) {
-      console.error('RTF fallback failed:', rtfError);
-      alert('Word export failed. Downloading as text instead.');
+      console.error("RTF fallback failed:", rtfError);
+      alert("Word export failed. Downloading as text instead.");
       downloadAsText(data);
     }
   }

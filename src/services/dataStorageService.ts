@@ -1,3 +1,5 @@
+import { hybridStorageManager } from './hybridStorage';
+
 export interface TranscriptionSession {
   id: string;
   title: string;
@@ -11,6 +13,8 @@ export interface TranscriptionSession {
   wordsCount: number;
   summary?: string;
   tags?: string[];
+  lastModified: string;
+  cloudSynced: boolean;
 }
 
 export interface TranscriptItem {
@@ -22,88 +26,64 @@ export interface TranscriptItem {
   speaker?: string;
 }
 
-// LocalStorage helpers
-const STORAGE_KEY = "ai-transcriptor-sessions";
-
-const saveToLocalStorage = () => {
+// Initialize hybrid storage (localStorage + optional Azure Blob)
+const initializeStorage = async () => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-  } catch (error) {
-    console.error("Failed to save sessions to localStorage:", error);
-  }
-};
-
-const loadFromLocalStorage = () => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsedSessions = JSON.parse(stored);
-      if (Array.isArray(parsedSessions)) {
-        sessions = parsedSessions;
-      }
+    // First, try to get configuration from environment variables
+    const envConnectionString = import.meta.env.VITE_AZURE_BLOB_CONNECTION_STRING;
+    const envContainerName = import.meta.env.VITE_AZURE_BLOB_CONTAINER_NAME || 'ai-transcriptions';
+    
+    if (envConnectionString) {
+      // Use environment variables
+      console.log('Found Azure Blob Storage configuration in environment variables');
+      await hybridStorageManager.initialize({
+        azureBlobConfig: {
+          connectionString: envConnectionString,
+          containerName: envContainerName
+        },
+        enableCloudSync: true,
+        autoSyncInterval: 5 // Sync every 5 minutes
+      });
+      console.log('Hybrid storage initialized with cloud sync from .env');
+      return;
+    }
+    
+    // Fallback: Check if user has Azure configuration in localStorage
+    const azureConfig = localStorage.getItem('azureBlobConfig');
+    const enableCloudSync = localStorage.getItem('enableCloudSync') === 'true';
+    
+    if (azureConfig && enableCloudSync) {
+      const parsedConfig = JSON.parse(azureConfig);
+      await hybridStorageManager.initialize({
+        azureBlobConfig: parsedConfig,
+        enableCloudSync: true,
+        autoSyncInterval: 5 // Sync every 5 minutes
+      });
+      console.log('Hybrid storage initialized with cloud sync from localStorage');
+    } else {
+      await hybridStorageManager.initialize({
+        enableCloudSync: false
+      });
+      console.log('Local storage initialized (no cloud configuration found)');
     }
   } catch (error) {
-    console.error("Failed to load sessions from localStorage:", error);
+    console.warn('Storage initialization failed, falling back to local-only:', error);
+    await hybridStorageManager.initialize({
+      enableCloudSync: false
+    });
   }
-};
-
-// In-memory storage for now (can be replaced with IndexedDB or API calls)
-let sessions: TranscriptionSession[] = [];
-
-// Initialize by loading from localStorage
-const initializeSessions = () => {
-  // First, clear any existing dummy data keys from localStorage
-  const dummyKeys = [
-    "ai-transcriptor-sessions",
-    "transcription-sessions",
-    "ai-transcriptor",
-    "transcription",
-  ];
-
-  dummyKeys.forEach((key) => {
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      try {
-        const data = JSON.parse(stored);
-        if (Array.isArray(data)) {
-          const hasDummyData = data.some(
-            (session) =>
-              session.title === "Biology Lecture - Cell Structure" ||
-              session.title === "Team Meeting - Project Review" ||
-              session.title === "Session 1" ||
-              session.title === "Session 2" ||
-              session.title === "Session 3" ||
-              session.id === "1" ||
-              session.id === "2" ||
-              session.id === "3"
-          );
-
-          if (hasDummyData) {
-            console.log(`Clearing dummy data from localStorage key: ${key}`);
-            localStorage.removeItem(key);
-          }
-        }
-      } catch (e) {
-        // If parsing fails, remove the corrupted data
-        localStorage.removeItem(key);
-      }
-    }
-  });
-
-  // Now load fresh data from localStorage
-  loadFromLocalStorage();
 };
 
 // Initialize on module load
-initializeSessions();
+initializeStorage();
 
 // Create a new session
-export const createSession = (
+export const createSession = async (
   sessionData: Omit<
     TranscriptionSession,
-    "id" | "questionsCount" | "wordsCount"
+    "id" | "questionsCount" | "wordsCount" | "lastModified" | "cloudSynced"
   >
-): TranscriptionSession => {
+): Promise<TranscriptionSession> => {
   const newSession: TranscriptionSession = {
     ...sessionData,
     id: Date.now().toString(),
@@ -114,189 +94,96 @@ export const createSession = (
       (count, item) => count + item.content.split(" ").length,
       0
     ),
+    lastModified: new Date().toISOString(),
+    cloudSynced: false
   };
 
-  sessions.unshift(newSession);
-  saveToLocalStorage();
+  await hybridStorageManager.saveSession(newSession);
   return newSession;
 };
 
 // Get all sessions
-export const getAllSessions = (): TranscriptionSession[] => {
-  loadFromLocalStorage();
-  return sessions.sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+export const getAllSessions = async (): Promise<TranscriptionSession[]> => {
+  return await hybridStorageManager.getAllSessions();
 };
 
 // Get session by ID
-export const getSessionById = (id: string): TranscriptionSession | null => {
-  loadFromLocalStorage();
-  return sessions.find((session) => session.id === id) || null;
+export const getSessionById = async (id: string): Promise<TranscriptionSession | null> => {
+  return await hybridStorageManager.getSessionById(id);
 };
 
 // Update session
-export const updateSession = (
+export const updateSession = async (
   id: string,
   updates: Partial<TranscriptionSession>
-): TranscriptionSession | null => {
-  loadFromLocalStorage();
-  const sessionIndex = sessions.findIndex((session) => session.id === id);
-  if (sessionIndex === -1) return null;
-
-  sessions[sessionIndex] = { ...sessions[sessionIndex], ...updates };
-  saveToLocalStorage();
-  return sessions[sessionIndex];
+): Promise<TranscriptionSession | null> => {
+  return await hybridStorageManager.updateSession(id, {
+    ...updates,
+    lastModified: new Date().toISOString()
+  });
 };
 
 // Delete session
-export const deleteSession = (id: string): boolean => {
-  loadFromLocalStorage();
-  const initialLength = sessions.length;
-  sessions = sessions.filter((session) => session.id !== id);
-  if (sessions.length < initialLength) {
-    saveToLocalStorage();
-    return true;
-  }
-  return false;
+export const deleteSession = async (id: string): Promise<boolean> => {
+  return await hybridStorageManager.deleteSession(id);
 };
 
-// Add transcript item to session
-export const addTranscriptItem = (
-  sessionId: string,
-  item: Omit<TranscriptItem, "id">
-): TranscriptItem | null => {
-  loadFromLocalStorage();
-  const session = sessions.find((s) => s.id === sessionId);
-  if (!session) return null;
-
-  const newItem: TranscriptItem = {
-    ...item,
-    id: Date.now().toString(),
-  };
-
-  session.transcript.push(newItem);
-  session.questionsCount = session.transcript.filter(
-    (i) => i.type === "question"
-  ).length;
-  session.wordsCount = session.transcript.reduce(
-    (count, i) => count + i.content.split(" ").length,
-    0
-  );
-
-  saveToLocalStorage();
-  return newItem;
+// For backward compatibility - sync versions of async functions
+export const getAllSessionsSync = (): TranscriptionSession[] => {
+  // This is a temporary fallback - components should be updated to use async version
+  console.warn('Using deprecated sync version of getAllSessions');
+  return [];
 };
 
-// Export session data
-export const exportSession = (
-  sessionId: string,
-  format: "txt" | "json" | "csv"
-): string => {
-  const session = getSessionById(sessionId);
-  if (!session) return "";
-
-  switch (format) {
-    case "txt":
-      return session.transcript
-        .map(
-          (item) =>
-            `[${item.timestamp}] ${item.type === "ai_response" ? "AI: " : ""}${
-              item.content
-            }`
-        )
-        .join("\n");
-
-    case "json":
-      return JSON.stringify(session, null, 2);
-
-    case "csv":
-      const csvHeader = "Timestamp,Type,Content,Confidence\n";
-      const csvRows = session.transcript
-        .map(
-          (item) =>
-            `"${item.timestamp}","${item.type}","${item.content.replace(
-              /"/g,
-              '""'
-            )}","${item.confidence || ""}"`
-        )
-        .join("\n");
-      return csvHeader + csvRows;
-
-    default:
-      return "";
-  }
-};
-
-// Search sessions
-export const searchSessions = (query: string): TranscriptionSession[] => {
-  loadFromLocalStorage();
-  const lowercaseQuery = query.toLowerCase();
-  return sessions.filter(
-    (session) =>
-      session.title.toLowerCase().includes(lowercaseQuery) ||
-      session.summary?.toLowerCase().includes(lowercaseQuery) ||
-      session.tags?.some((tag) => tag.toLowerCase().includes(lowercaseQuery)) ||
-      session.transcript.some((item) =>
-        item.content.toLowerCase().includes(lowercaseQuery)
-      )
-  );
-};
-
-// Get session statistics
-export const getSessionStats = () => {
-  loadFromLocalStorage();
+// Session statistics
+export const getSessionStats = async () => {
+  const sessions = await getAllSessions();
+  
   const totalSessions = sessions.length;
-  const totalQuestions = sessions.reduce(
-    (sum, session) => sum + session.questionsCount,
-    0
-  );
-  const totalWords = sessions.reduce(
-    (sum, session) => sum + session.wordsCount,
-    0
-  );
-  const totalDuration = sessions.reduce((sum, session) => {
-    const [hours, minutes] = session.duration
-      .replace(/[hm]/g, "")
-      .split(" ")
-      .map(Number);
-    return sum + hours * 60 + minutes;
+  const totalWords = sessions.reduce((sum, session) => sum + session.wordsCount, 0);
+  
+  // Calculate total hours from duration strings
+  const totalMinutes = sessions.reduce((sum, session) => {
+    const duration = session.duration;
+    if (duration.includes('h')) {
+      const parts = duration.split('h');
+      const hours = parseInt(parts[0]) || 0;
+      const minutes = parts[1] ? parseInt(parts[1].replace('m', '')) || 0 : 0;
+      return sum + (hours * 60) + minutes;
+    } else {
+      return sum + (parseInt(duration.replace('m', '')) || 0);
+    }
   }, 0);
 
   return {
     totalSessions,
-    totalQuestions,
     totalWords,
-    totalHours: Math.round((totalDuration / 60) * 10) / 10,
-    averageWordsPerSession: Math.round(totalWords / Math.max(totalSessions, 1)),
-    averageQuestionsPerSession: Math.round(
-      totalQuestions / Math.max(totalSessions, 1)
-    ),
+    totalHours: Math.round(totalMinutes / 60 * 100) / 100
   };
 };
 
-// Utility function to completely clear dummy data (for debugging)
+// Storage management functions
+export const syncToCloud = async () => {
+  return await hybridStorageManager.syncToCloud();
+};
+
+export const syncFromCloud = async () => {
+  return await hybridStorageManager.syncFromCloud();
+};
+
+export const getStorageStats = async () => {
+  return await hybridStorageManager.getStorageStats();
+};
+
+export const exportSessions = async (): Promise<string> => {
+  return await hybridStorageManager.exportSessions();
+};
+
+export const importSessions = async (jsonData: string) => {
+  return await hybridStorageManager.importSessions(jsonData);
+};
+
+// Clear dummy data function (keep for compatibility)
 export const clearAllDummyData = () => {
-  console.log("Manually clearing all dummy data...");
-
-  // Clear all localStorage keys that might contain session data
-  const allKeys = Object.keys(localStorage);
-  allKeys.forEach((key) => {
-    if (
-      key.includes("ai-transcriptor") ||
-      key.includes("transcription") ||
-      key.includes("session")
-    ) {
-      console.log(`Removing localStorage key: ${key}`);
-      localStorage.removeItem(key);
-    }
-  });
-
-  // Reset in-memory sessions
-  sessions = [];
-
-  // Save empty array to localStorage
-  saveToLocalStorage();
-
-  console.log("All dummy data cleared successfully");
+  console.log('Dummy data clearing is handled by enhanced storage system');
 };

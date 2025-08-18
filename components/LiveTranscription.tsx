@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 // import logoUrl from "../src/assets/Logo.svg";
 import { azureSpeechService } from "../src/services/realAzureSpeechService";
+import { enhancedAudioService, AudioCaptureOptions } from "../src/services/enhancedAudioService";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Card, CardContent } from "./ui/card";
@@ -31,7 +32,6 @@ import { Textarea } from "./ui/textarea";
 import { getAIResponseStream } from "../src/services/azureOpenAIService-fixed";
 import {
   createSession,
-  updateSession,
 } from "../src/services/dataStorageService";
 import {
   downloadAsText,
@@ -76,12 +76,38 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentSpeech, setCurrentSpeech] = useState("");
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessionTitle, setSessionTitle] = useState("");
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
 
   // Recording duration tracking
   const [currentRecordingTime, setCurrentRecordingTime] = useState<string>("");
+
+  // Audio capture options
+  const [audioOptions, setAudioOptions] = useState<AudioCaptureOptions>({
+    captureMicrophone: true,
+    captureSystemAudio: false, // Default to false so users don't immediately hit system audio errors
+  });
+
+  // Browser compatibility check for system audio
+  const isSystemAudioSupported = () => {
+    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+    const isEdge = /Edg/.test(navigator.userAgent);
+    const isFirefox = /Firefox/.test(navigator.userAgent);
+    const hasGetDisplayMedia = navigator.mediaDevices && (navigator.mediaDevices as any).getDisplayMedia;
+    
+    return hasGetDisplayMedia && (isChrome || isEdge || isFirefox);
+  };
+
+  const getBrowserInfo = () => {
+    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+    const isEdge = /Edg/.test(navigator.userAgent);
+    const isFirefox = /Firefox/.test(navigator.userAgent);
+    
+    if (isChrome) return { name: 'Chrome', supportsSystemAudio: 'full' };
+    if (isEdge) return { name: 'Edge', supportsSystemAudio: 'full' };
+    if (isFirefox) return { name: 'Firefox', supportsSystemAudio: 'limited' };
+    return { name: 'Unknown', supportsSystemAudio: 'none' };
+  };
 
   // Enhanced AI interaction state
   const [
@@ -442,17 +468,40 @@ Please provide a helpful explanation or clarification.`;
     setIsRecording(false);
   };
 
-  const startService = () => {
+  const startService = async () => {
     setError(null);
-    // A new final transcript segment will be created on each start.
-    azureSpeechService.startRecording((result) => {
-      // Adapter to match the expected signature
-      handleTranscriptionUpdate(result.text, true); // Always treat as final
-    }, handleTranscriptionError);
+    
+    try {
+      // Choose service based on audio capture options
+      if (audioOptions.captureSystemAudio) {
+        // Use enhanced audio service for system audio capture
+        await enhancedAudioService.startRecording(
+          audioOptions,
+          (result) => {
+            // Add source indicator to the transcript
+            const sourceLabel = result.source === 'mixed' ? '🎤🔊' : 
+                               result.source === 'system' ? '🔊' : '🎤';
+            handleTranscriptionUpdate(`${sourceLabel} ${result.text}`, true);
+          },
+          handleTranscriptionError
+        );
+      } else {
+        // Use regular Azure Speech Service for microphone only
+        azureSpeechService.startRecording((result) => {
+          handleTranscriptionUpdate(result.text, true);
+        }, handleTranscriptionError);
+      }
+    } catch (error) {
+      handleTranscriptionError(`Failed to start recording: ${error}`);
+    }
   };
 
-  const stopService = () => {
-    azureSpeechService.stopRecording();
+  const stopService = async () => {
+    if (audioOptions.captureSystemAudio) {
+      await enhancedAudioService.stopRecording();
+    } else {
+      azureSpeechService.stopRecording();
+    }
   };
 
   const handleStartSession = async () => {
@@ -468,102 +517,30 @@ Please provide a helpful explanation or clarification.`;
       })
     );
 
-    // Create a new session
-    const title =
-      sessionTitle ||
-      `Session ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
-    try {
-      const session = createSession({
-        title,
-        date: new Date().toISOString().split("T")[0],
-        startTime: new Date().toLocaleTimeString(),
-        duration: "0m",
-        type: "other",
-        transcript: [],
-      });
-      setCurrentSessionId(session.id);
-    } catch (error) {
-      console.error("Error creating session:", error);
-    }
+    // No automatic session creation - user must manually save
+    console.log("Recording started. Use 'Save Transcript' when you want to save your session.");
 
-    startService();
+    await startService();
   };
 
   const handleStopSession = async () => {
     if (isRecording) {
-      stopService();
+      await stopService();
     }
 
     setIsRecording(false);
-
-    // Save the session if we have content
-    if (currentSessionId && transcript.length > 0) {
-      try {
-        // Calculate session duration
-        const endTime = new Date();
-        const startTimeObj = sessionStartTime || new Date();
-        const durationMs = endTime.getTime() - startTimeObj.getTime();
-        const durationMinutes = Math.round(durationMs / 60000);
-        const durationHours = Math.floor(durationMinutes / 60);
-        const remainingMinutes = durationMinutes % 60;
-        const durationString =
-          durationHours > 0
-            ? `${durationHours}h ${remainingMinutes}m`
-            : `${remainingMinutes}m`;
-
-        // Convert transcript items to the format expected by dataStorageService
-        const transcriptData = transcript.map((item) => ({
-          id: item.id,
-          type:
-            item.type === "answer"
-              ? ("ai_response" as const)
-              : item.type === "question"
-              ? ("question" as const)
-              : ("speech" as const),
-          content: item.content,
-          timestamp: item.timestamp.toISOString(),
-          confidence: item.confidence,
-          speaker: item.speaker,
-        }));
-
-        // Update the session with the transcript data and final duration
-        const updatedSession = updateSession(currentSessionId, {
-          endTime: endTime.toLocaleTimeString(),
-          duration: durationString,
-          transcript: transcriptData,
-          questionsCount: transcript.filter((item) => item.type === "question")
-            .length,
-          wordsCount: transcript.reduce(
-            (count, item) => count + item.content.split(" ").length,
-            0
-          ),
-          summary:
-            transcript.length > 0
-              ? `Session with ${transcript.length} transcript items`
-              : "Empty session",
-        });
-
-        if (updatedSession) {
-          console.log("Session saved successfully:", updatedSession.title);
-          // Optionally navigate to the session detail page
-          // onNavigate('session-detail', currentSessionId);
-        }
-      } catch (error) {
-        console.error("Error saving session:", error);
-      }
-    }
-
-    setCurrentSessionId(null);
     setSessionStartTime(null);
+    
+    console.log("Recording stopped. Use 'Save Transcript' to save your session.");
   };
 
-  const togglePauseResume = () => {
+  const togglePauseResume = async () => {
     const willPause = !isPaused;
     setIsPaused(willPause);
     if (willPause) {
-      stopService();
+      await stopService();
     } else {
-      startService();
+      await startService();
     }
   };
 
@@ -634,7 +611,7 @@ Please provide a helpful explanation or clarification.`;
     await downloadAsWord(transcriptData);
   };
 
-  const handleSaveTranscript = () => {
+  const handleSaveTranscript = async () => {
     if (transcript.length === 0) {
       alert("No transcript data to save");
       return;
@@ -673,7 +650,7 @@ Please provide a helpful explanation or clarification.`;
         `Saved Transcript ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
 
       // Create a new session with the current transcript
-      const session = createSession({
+      const session = await createSession({
         title,
         date: new Date().toISOString().split("T")[0],
         startTime:
@@ -717,32 +694,54 @@ Please provide a helpful explanation or clarification.`;
   };
 
   if (error) {
+    const isSystemAudioError = error.includes("System audio") || error.includes("getDisplayMedia");
+    
     return (
       <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center">
         <div className="text-center max-w-md p-8 bg-[#1E293B] rounded-lg shadow-lg">
           <h1 className="text-2xl font-bold text-red-500 mb-4">
-            Transcription Error
+            {isSystemAudioError ? "System Audio Error" : "Transcription Error"}
           </h1>
           <p className="text-md text-[#94A3B8] mb-6">{error}</p>
-          <p className="text-sm text-[#94A3B8] mb-6">
-            Please check your speech service configuration in the settings page.
-          </p>
+          
+          {isSystemAudioError ? (
+            <div className="text-sm text-[#94A3B8] mb-6 space-y-2">
+              <p className="font-semibold text-[#F8FAFC]">To use system audio capture:</p>
+              <ul className="text-left space-y-1">
+                <li>• Use Chrome or Edge browser</li>
+                <li>• When prompted, select "Share tab audio" or "Share system audio"</li>
+                <li>• Make sure audio is enabled in the sharing dialog</li>
+                <li>• Try microphone-only mode as an alternative</li>
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm text-[#94A3B8] mb-6">
+              Please check your speech service configuration in the settings page.
+            </p>
+          )}
+          
           <div className="flex justify-center gap-4">
-            <Button
-              onClick={() => onNavigate("settings")}
-              variant="outline"
-              className="border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
-            >
-              Go to Settings
-            </Button>
+            {!isSystemAudioError && (
+              <Button
+                onClick={() => onNavigate("settings")}
+                variant="outline"
+                className="border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
+              >
+                Go to Settings
+              </Button>
+            )}
             <Button
               onClick={() => {
                 setError(null);
                 setIsRecording(false);
+                // If it was a system audio error, disable system audio for next attempt
+                if (isSystemAudioError) {
+                  setAudioOptions(prev => ({ ...prev, captureSystemAudio: false }));
+                }
               }}
               className="bg-blue-500 hover:bg-blue-600 text-white"
             >
-              Back
+              {isSystemAudioError ? "Try Microphone Only" : "Back"}
             </Button>
           </div>
         </div>
@@ -763,15 +762,120 @@ Please provide a helpful explanation or clarification.`;
           <p className="text-lg text-[#94A3B8] mb-8">
             Press the button to start your live transcription session.
           </p>
+          
+          {/* Audio Source Selection */}
+          <div className="mb-6 p-4 bg-[#1E293B] rounded-lg border border-[#334155]">
+            <h3 className="text-white font-semibold mb-3">Audio Sources</h3>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mic className="w-4 h-4 text-[#94A3B8]" />
+                  <span className="text-[#F8FAFC]">Microphone</span>
+                </div>
+                <Switch
+                  checked={audioOptions.captureMicrophone}
+                  onCheckedChange={(checked) =>
+                    setAudioOptions(prev => ({ ...prev, captureMicrophone: checked }))
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🔊</span>
+                  <span className="text-[#F8FAFC]">System Audio</span>
+                  {!isSystemAudioSupported() && (
+                    <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
+                      Not supported
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={audioOptions.captureSystemAudio}
+                    disabled={!isSystemAudioSupported()}
+                    onCheckedChange={(checked) =>
+                      setAudioOptions(prev => ({ ...prev, captureSystemAudio: checked }))
+                    }
+                  />
+                  {audioOptions.captureSystemAudio && isSystemAudioSupported() && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const stream = await (navigator.mediaDevices as any).getDisplayMedia({
+                            video: false,
+                            audio: true
+                          });
+                          stream.getTracks().forEach((track: any) => track.stop());
+                          alert("✅ System audio test successful! You can now start recording with system audio.");
+                        } catch (error) {
+                          alert(`❌ System audio test failed: ${error}. Please use microphone-only mode.`);
+                          setAudioOptions(prev => ({ ...prev, captureSystemAudio: false }));
+                        }
+                      }}
+                      className="text-xs px-2 py-1 h-6 border-blue-500 text-blue-300 hover:bg-blue-500/20"
+                    >
+                      Test
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            {audioOptions.captureSystemAudio && isSystemAudioSupported() && (
+              <div className="text-xs text-[#94A3B8] mt-2 space-y-1">
+                <p>⚠️ System audio capture requires:</p>
+                {(() => {
+                  const browserInfo = getBrowserInfo();
+                  if (browserInfo.name === 'Firefox') {
+                    return (
+                      <ul className="text-left space-y-1 ml-4">
+                        <li>• Click "Allow" when prompted for screen sharing</li>
+                        <li>• Select your screen or application window</li>
+                        <li>• <strong>Check "Share system audio"</strong> in the dialog</li>
+                        <li>• Have audio playing (music, videos, etc.)</li>
+                        <li>• Note: Firefox may require video sharing enabled</li>
+                      </ul>
+                    );
+                  } else {
+                    return (
+                      <ul className="text-left space-y-1 ml-4">
+                        <li>• Click "Share your screen" when prompted</li>
+                        <li>• Select "Share tab audio" or "Share system audio"</li>
+                        <li>• Enable audio in the sharing dialog</li>
+                        <li>• Have audio playing (music, videos, etc.)</li>
+                      </ul>
+                    );
+                  }
+                })()}
+                <p className="text-blue-400 font-medium">
+                  💡 Use the "Test" button to check if it works in your browser ({getBrowserInfo().name}).
+                </p>
+              </div>
+            )}
+            {audioOptions.captureSystemAudio && !isSystemAudioSupported() && (
+              <div className="text-xs text-yellow-400 mt-2 p-2 bg-yellow-500/10 rounded">
+                System audio is not supported in your current browser. Please use Chrome (74+), Edge (79+), or Firefox (66+) for system audio capture.
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-col items-center gap-4">
             <Button
               onClick={handleStartSession}
               size="lg"
               className="bg-green-500 hover:bg-green-600 text-white"
+              disabled={!audioOptions.captureMicrophone && !audioOptions.captureSystemAudio}
             >
               <Mic className="w-6 h-6 mr-2" />
               Start Session
             </Button>
+            
+            {!audioOptions.captureMicrophone && !audioOptions.captureSystemAudio && (
+              <p className="text-sm text-red-400">
+                Please select at least one audio source
+              </p>
+            )}
 
             <Button
               onClick={handleSaveTranscript}
@@ -814,6 +918,22 @@ Please provide a helpful explanation or clarification.`;
             <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
             Live
           </Badge>
+
+          {/* Audio Source Indicators */}
+          <div className="flex items-center gap-1">
+            {audioOptions.captureMicrophone && (
+              <Badge variant="outline" className="bg-blue-500/20 border-blue-500 text-blue-300">
+                <Mic className="w-3 h-3 mr-1" />
+                Mic
+              </Badge>
+            )}
+            {audioOptions.captureSystemAudio && (
+              <Badge variant="outline" className="bg-purple-500/20 border-purple-500 text-purple-300">
+                <span className="text-xs mr-1">🔊</span>
+                System
+              </Badge>
+            )}
+          </div>
 
           {/* Recording Time */}
           <div className="flex items-center gap-2 px-3 py-1 bg-[#1E293B] rounded-md">

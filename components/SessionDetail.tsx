@@ -14,13 +14,20 @@ import {
   Bot,
   Search,
   Mic,
+  User,
 } from "lucide-react";
 import {
   getSessionById,
   updateSession,
   deleteSession as deleteSessionService,
   TranscriptionSession,
+  TranscriptItem,
 } from "../src/services/dataStorageService";
+import {
+  downloadAsText,
+  downloadAsPdf,
+  downloadAsWord,
+} from "../src/services/simpleExportService";
 
 type NavigateFunction = (
   page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
@@ -37,14 +44,26 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
   const [editedTitle, setEditedTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [session, setSession] = useState<TranscriptionSession | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (sessionId) {
-      const sessionData = getSessionById(sessionId);
-      setSession(sessionData);
-      if (sessionData) {
-        setEditedTitle(sessionData.title);
-      }
+      const loadSession = async () => {
+        try {
+          setLoading(true);
+          const sessionData = await getSessionById(sessionId);
+          setSession(sessionData);
+          if (sessionData) {
+            setEditedTitle(sessionData.title);
+          }
+        } catch (error) {
+          console.error('Failed to load session:', error);
+          setSession(null);
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadSession();
     }
   }, [sessionId]);
 
@@ -53,12 +72,79 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
       session &&
       window.confirm("Are you sure you want to delete this session?")
     ) {
-      const success = deleteSessionService(session.id);
-      if (success) {
-        onNavigate("sessions");
+      try {
+        const success = await deleteSessionService(session.id);
+        if (success) {
+          onNavigate("sessions");
+        }
+      } catch (error) {
+        console.error('Failed to delete session:', error);
+        alert('Failed to delete session. Please try again.');
       }
     }
   };
+
+  const handleTitleEdit = async () => {
+    if (isEditing) {
+      // Save the edited title
+      if (session) {
+        try {
+          const updatedSession = await updateSession(session.id, {
+            title: editedTitle,
+          });
+          if (updatedSession) {
+            setSession(updatedSession);
+          }
+        } catch (error) {
+          console.error('Failed to update session title:', error);
+        }
+      }
+      setIsEditing(false);
+    } else {
+      setIsEditing(true);
+    }
+  };
+
+  const handleExport = async (format: 'txt' | 'pdf' | 'docx') => {
+    if (!session) return;
+
+    const transcriptData = {
+      title: session.title,
+      content: session.transcript.map(item => 
+        `[${new Date(item.timestamp).toLocaleTimeString()}] ${item.speaker || 'Speaker'}: ${item.content}`
+      ).join('\n'),
+      timestamp: new Date().toISOString(),
+      duration: session.duration,
+    };
+
+    try {
+      switch (format) {
+        case 'txt':
+          await downloadAsText(transcriptData);
+          break;
+        case 'pdf':
+          await downloadAsPdf(transcriptData);
+          break;
+        case 'docx':
+          await downloadAsWord(transcriptData);
+          break;
+      }
+    } catch (error) {
+      console.error(`Failed to export as ${format}:`, error);
+      alert(`Failed to export as ${format.toUpperCase()}. Please try again.`);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-[#F8FAFC]">Loading session...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!session) {
     return (
@@ -67,6 +153,9 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
           <h2 className="text-xl font-semibold text-[#F8FAFC] mb-2">
             Session not found
           </h2>
+          <p className="text-[#94A3B8] mb-4">
+            The session you're looking for doesn't exist or has been deleted.
+          </p>
           <Button onClick={() => onNavigate("sessions")}>
             Back to Sessions
           </Button>
@@ -79,57 +168,40 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
     item.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleTitleEdit = () => {
-    if (isEditing) {
-      // Save the edited title
-      if (session) {
-        const updatedSession = updateSession(session.id, {
-          title: editedTitle,
-        });
-        if (updatedSession) {
-          setSession(updatedSession);
-        }
-      }
-      setIsEditing(false);
-    } else {
-      setIsEditing(true);
+  const formatTime = (timestamp: string) => {
+    try {
+      return new Date(timestamp).toLocaleTimeString();
+    } catch {
+      return timestamp;
     }
   };
 
-  const formatTime = (time: string) => {
-    return time;
-  };
-
-  const getTypeColor = (type: string) => {
+  const getItemTypeIcon = (type: TranscriptItem['type']) => {
     switch (type) {
-      case "lecture":
-        return "bg-blue-500";
-      case "meeting":
-        return "bg-green-500";
-      case "interview":
-        return "bg-purple-500";
+      case 'question':
+        return <MessageSquare className="w-4 h-4 text-blue-400" />;
+      case 'ai_response':
+        return <Bot className="w-4 h-4 text-green-400" />;
       default:
-        return "bg-gray-500";
+        return <User className="w-4 h-4 text-gray-400" />;
     }
   };
 
-  const getTypeIcon = (type: string) => {
+  const getItemTypeBadge = (type: TranscriptItem['type']) => {
     switch (type) {
-      case "lecture":
-        return "🎓";
-      case "meeting":
-        return "🏢";
-      case "interview":
-        return "🎤";
+      case 'question':
+        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Question</Badge>;
+      case 'ai_response':
+        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">AI Response</Badge>;
       default:
-        return "📄";
+        return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">Speech</Badge>;
     }
   };
 
   return (
     <div className="min-h-screen bg-[#0F172A]">
       {/* Header */}
-      <header className="flex items-center justify-between p-6 border-b border-[#1E293B] bg-[#0F172A]/95 backdrop-blur-sm sticky top-0 z-10">
+      <header className="flex items-center justify-between p-6 border-b border-[#1E293B]">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -139,230 +211,189 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-white to-[#6D28D9] rounded-lg flex items-center justify-center">
-              <Mic className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-semibold">Session Detail</h1>
+          <div className="flex items-center">
+            <img
+              src="/src/assets/Logo.svg"
+              alt="AI Transcriptor"
+              className="h-16 w-auto"
+            />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold text-[#F8FAFC]">
+              Session Details
+            </h1>
+            <p className="text-[#94A3B8]">
+              View and manage your transcription session
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="text-[#F8FAFC] hover:bg-[#1E293B]"
+            onClick={() => handleExport('txt')}
+            className="bg-[#1E293B] border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
           >
             <Download className="w-4 h-4 mr-2" />
-            Export
+            Export TXT
           </Button>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="text-red-400 hover:text-red-300 hover:bg-[#1E293B]"
-            onClick={handleDeleteSession}
+            onClick={() => handleExport('pdf')}
+            className="bg-[#1E293B] border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
           >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete
+            <Download className="w-4 h-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport('docx')}
+            className="bg-[#1E293B] border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export DOCX
           </Button>
         </div>
       </header>
 
-      {/* Session Info */}
-      <div className="p-6 border-b border-[#1E293B] bg-[#1E293B]/50">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              {isEditing ? (
-                <div className="flex items-center gap-2 mb-2">
+      {/* Main Content */}
+      <main className="p-6 space-y-6">
+        {/* Session Info Card */}
+        <Card className="bg-[#1E293B] border-[#334155]">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex-1">
+                {isEditing ? (
                   <Input
                     value={editedTitle}
                     onChange={(e) => setEditedTitle(e.target.value)}
                     className="text-xl font-semibold bg-[#0F172A] border-[#334155] text-[#F8FAFC]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleTitleEdit();
+                      }
+                    }}
+                    autoFocus
                   />
-                  <Button size="sm" onClick={handleTitleEdit}>
-                    Save
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsEditing(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 mb-2">
+                ) : (
                   <h2 className="text-xl font-semibold text-[#F8FAFC]">
                     {session.title}
                   </h2>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleTitleEdit}
-                    className="text-[#94A3B8] hover:text-[#F8FAFC]"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-
-              <div className="flex items-center gap-4 text-sm text-[#94A3B8]">
-                <Badge
-                  className={`${getTypeColor(session.type)} text-white text-xs`}
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={handleTitleEdit}>
+                  <Edit3 className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleDeleteSession}
                 >
-                  {getTypeIcon(session.type)} {session.type}
-                </Badge>
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  <span>
-                    {session.date} at {session.startTime}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  <span>{session.duration}</span>
-                </div>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-lg font-semibold text-[#3B82F6]">
-                  {session.questionsCount}
-                </div>
-                <div className="text-xs text-[#94A3B8]">Questions</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="flex items-center gap-2 text-[#94A3B8]">
+                <Calendar className="w-4 h-4" />
+                <span>{session.date}</span>
               </div>
-              <div>
-                <div className="text-lg font-semibold text-[#6D28D9]">
-                  {session.wordsCount.toLocaleString()}
-                </div>
-                <div className="text-xs text-[#94A3B8]">Words</div>
+              <div className="flex items-center gap-2 text-[#94A3B8]">
+                <Clock className="w-4 h-4" />
+                <span>{session.duration}</span>
               </div>
-              <div>
-                <div className="text-lg font-semibold text-[#10B981]">
-                  {
-                    session.transcript.filter((t) => t.type === "ai_response")
-                      .length
-                  }
-                </div>
-                <div className="text-xs text-[#94A3B8]">AI Answers</div>
+              <div className="flex items-center gap-2 text-[#94A3B8]">
+                <MessageSquare className="w-4 h-4" />
+                <span>{session.transcript.length} items</span>
+              </div>
+              <div className="flex items-center gap-2 text-[#94A3B8]">
+                <Mic className="w-4 h-4" />
+                <span>{session.wordsCount.toLocaleString()} words</span>
               </div>
             </div>
-          </div>
 
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#94A3B8] w-4 h-4" />
-            <Input
-              placeholder="Search transcript..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-[#0F172A] border-[#334155] text-[#F8FAFC] placeholder-[#94A3B8]"
-            />
-          </div>
-        </div>
-      </div>
+            {session.summary && (
+              <div className="mt-4 p-3 bg-[#0F172A] rounded-lg">
+                <h3 className="font-medium text-[#F8FAFC] mb-2">Summary</h3>
+                <p className="text-[#94A3B8] text-sm">{session.summary}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Transcript */}
-      <main className="p-6 max-w-6xl mx-auto">
-        <div className="space-y-4">
-          {filteredTranscript.map((item) => (
-            <div key={item.id} className="space-y-2">
-              {item.type === "speech" && (
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-                    {item.speaker?.charAt(0) || "S"}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-[#F8FAFC]">
-                        {item.speaker}:
-                      </span>
-                      <span className="text-xs text-[#94A3B8]">
-                        {formatTime(item.timestamp)}
-                      </span>
-                    </div>
-                    <p className="text-[#F8FAFC] leading-relaxed">
-                      {item.content}
-                    </p>
-                  </div>
-                </div>
-              )}
+        {/* Search */}
+        <Card className="bg-[#1E293B] border-[#334155]">
+          <CardContent className="p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-[#94A3B8]" />
+              <Input
+                placeholder="Search transcript..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-[#0F172A] border-[#334155] text-[#F8FAFC]"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-              {item.type === "question" && (
-                <Card className="bg-[#1E3A8A]/20 border-[#3B82F6] ml-4">
-                  <CardContent className="p-4">
+        {/* Transcript */}
+        <Card className="bg-[#1E293B] border-[#334155]">
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold text-[#F8FAFC] mb-4">
+              Transcript ({filteredTranscript.length} items)
+            </h3>
+            
+            {filteredTranscript.length === 0 ? (
+              <div className="text-center py-8">
+                <MessageSquare className="w-12 h-12 text-[#94A3B8] mx-auto mb-4" />
+                <p className="text-[#94A3B8]">
+                  {searchQuery ? 'No matching transcript items found.' : 'No transcript items available.'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredTranscript.map((item, index) => (
+                  <div
+                    key={item.id || index}
+                    className="p-4 bg-[#0F172A] rounded-lg border border-[#334155] hover:border-[#475569] transition-colors"
+                  >
                     <div className="flex items-start gap-3">
-                      <MessageSquare className="w-5 h-5 text-[#3B82F6] mt-1 flex-shrink-0" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium text-[#3B82F6]">
-                            Question Detected:
-                          </span>
-                          <span className="text-xs text-[#94A3B8]">
-                            {formatTime(item.timestamp)}
-                          </span>
-                        </div>
-                        <p className="text-[#F8FAFC] leading-relaxed">
-                          {item.content}
-                        </p>
+                      <div className="flex-shrink-0 mt-1">
+                        {getItemTypeIcon(item.type)}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {item.type === "ai_response" && (
-                <Card className="bg-[#581C87]/20 border-[#6D28D9] ml-8">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Bot className="w-5 h-5 text-[#6D28D9] mt-1 flex-shrink-0" />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium text-[#6D28D9]">
-                            AI Answer:
-                          </span>
+                          {getItemTypeBadge(item.type)}
                           <span className="text-xs text-[#94A3B8]">
                             {formatTime(item.timestamp)}
                           </span>
+                          {item.speaker && (
+                            <span className="text-xs text-[#94A3B8]">
+                              • {item.speaker}
+                            </span>
+                          )}
                           {item.confidence && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs border-[#6D28D9] text-[#6D28D9]"
-                            >
-                              {item.confidence}% confidence
-                            </Badge>
+                            <span className="text-xs text-[#94A3B8]">
+                              • {Math.round(item.confidence * 100)}% confidence
+                            </span>
                           )}
                         </div>
                         <p className="text-[#F8FAFC] leading-relaxed">
                           {item.content}
                         </p>
-                        <div className="mt-2 text-xs text-[#6B7280]">
-                          Generated by GPT-4
-                        </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          ))}
-
-          {filteredTranscript.length === 0 && searchQuery && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 bg-[#334155] rounded-full flex items-center justify-center">
-                <Search className="w-8 h-8 text-[#94A3B8]" />
+                  </div>
+                ))}
               </div>
-              <h3 className="text-[#F8FAFC] font-medium mb-2">
-                No results found
-              </h3>
-              <p className="text-[#94A3B8]">
-                Try searching for different terms
-              </p>
-            </div>
-          )}
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </main>
     </div>
   );

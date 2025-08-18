@@ -12,8 +12,15 @@ import {
 } from "./ui/select";
 import { Slider } from "./ui/slider";
 import { Checkbox } from "./ui/checkbox";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Download, Upload } from "lucide-react";
 import { getAzureConfig } from "../src/config/azureConfig";
+import { 
+  getStorageStats, 
+  syncToCloud, 
+  syncFromCloud, 
+  exportSessions, 
+  importSessions 
+} from "../src/services/dataStorageService";
 
 type NavigateFunction = (
   page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
@@ -35,6 +42,16 @@ export function Settings({ onNavigate }: SettingsProps) {
     pdf: true,
   });
 
+  // Storage configuration
+  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
+  const [connectionString, setConnectionString] = useState("");
+  const [containerName, setContainerName] = useState("ai-transcriptions");
+  const [usingEnvConfig, setUsingEnvConfig] = useState(false);
+  const [storageStats, setStorageStats] = useState({
+    local: { totalSessions: 0, totalSizeBytes: 0 },
+    sync: { isEnabled: false, isCloudAvailable: false, unsyncedSessions: 0 }
+  });
+
   // Azure OpenAI Configuration
   const [azureConfig, setAzureConfigState] = useState({
     speechKey: "",
@@ -46,6 +63,7 @@ export function Settings({ onNavigate }: SettingsProps) {
 
   // Load existing configuration on component mount
   useEffect(() => {
+    // Load Azure config
     getAzureConfig()
       .then((config) => {
         setAzureConfigState({
@@ -53,13 +71,49 @@ export function Settings({ onNavigate }: SettingsProps) {
           speechRegion: config.speechRegion || "",
           openAIApiKey: config.openAIApiKey || "",
           openAIEndpoint: config.openAIEndpoint || "",
-          azureOpenAIApiDeploymentName: config.azureOpenAIApiDeploymentName || "",
+          azureOpenAIApiDeploymentName:
+            config.azureOpenAIApiDeploymentName || "",
         });
       })
       .catch((error) => {
         console.log("No existing Azure config found:", error);
       });
+
+    // Load storage configuration
+    // Check if environment variables are configured
+    const envConnectionString = import.meta.env.VITE_AZURE_BLOB_CONNECTION_STRING;
+    const envContainerName = import.meta.env.VITE_AZURE_BLOB_CONTAINER_NAME || 'ai-transcriptions';
+    
+    if (envConnectionString) {
+      // Environment variables are configured
+      setCloudSyncEnabled(true);
+      setConnectionString('••••••••••••••••••••'); // Show masked for security
+      setContainerName(envContainerName);
+      setUsingEnvConfig(true);
+    } else {
+      // Fallback to localStorage configuration
+      const storedCloudSync = localStorage.getItem('enableCloudSync') === 'true';
+      const storedConnectionString = localStorage.getItem('azureBlobConnectionString') || '';
+      const storedContainerName = localStorage.getItem('azureBlobContainerName') || 'ai-transcriptions';
+      
+      setCloudSyncEnabled(storedCloudSync);
+      setConnectionString(storedConnectionString);
+      setContainerName(storedContainerName);
+      setUsingEnvConfig(false);
+    }
+
+    // Load storage stats
+    loadStorageStats();
   }, []);
+
+  const loadStorageStats = async () => {
+    try {
+      const stats = await getStorageStats();
+      setStorageStats(stats);
+    } catch (error) {
+      console.error('Failed to load storage stats:', error);
+    }
+  };
 
   const handleSave = () => {
     // Save other settings (in a real app, this would save to backend/localStorage)
@@ -70,8 +124,10 @@ export function Settings({ onNavigate }: SettingsProps) {
       sensitivity: sensitivity[0],
       exportFormats,
     });
-    
-    alert("Settings saved successfully! Azure configuration is managed via .env file.");
+
+    alert(
+      "Settings saved successfully! Azure configuration is managed via .env file."
+    );
   };
 
   return (
@@ -238,46 +294,67 @@ export function Settings({ onNavigate }: SettingsProps) {
                   <div className="space-y-2">
                     <Label className="text-[#F8FAFC]">Speech Service Key</Label>
                     <div className="bg-[#334155] border border-[#475569] rounded px-3 py-2 text-[#F8FAFC]">
-                      {azureConfig.speechKey ? '••••••••••••••••' : 'Not configured'}
+                      {azureConfig.speechKey
+                        ? "••••••••••••••••"
+                        : "Not configured"}
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[#F8FAFC]">Speech Service Region</Label>
+                    <Label className="text-[#F8FAFC]">
+                      Speech Service Region
+                    </Label>
                     <div className="bg-[#334155] border border-[#475569] rounded px-3 py-2 text-[#F8FAFC]">
-                      {azureConfig.speechRegion || 'Not configured'}
+                      {azureConfig.speechRegion || "Not configured"}
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label className="text-[#F8FAFC]">Azure OpenAI API Key</Label>
                   <div className="bg-[#334155] border border-[#475569] rounded px-3 py-2 text-[#F8FAFC]">
-                    {azureConfig.openAIApiKey ? '••••••••••••••••' : 'Not configured'}
+                    {azureConfig.openAIApiKey
+                      ? "••••••••••••••••"
+                      : "Not configured"}
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
-                  <Label className="text-[#F8FAFC]">Azure OpenAI Endpoint</Label>
+                  <Label className="text-[#F8FAFC]">
+                    Azure OpenAI Endpoint
+                  </Label>
                   <div className="bg-[#334155] border border-[#475569] rounded px-3 py-2 text-[#F8FAFC] text-sm">
-                    {azureConfig.openAIEndpoint || 'Not configured'}
+                    {azureConfig.openAIEndpoint || "Not configured"}
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label className="text-[#F8FAFC]">Deployment Name</Label>
                   <div className="bg-[#334155] border border-[#475569] rounded px-3 py-2 text-[#F8FAFC]">
-                    {azureConfig.azureOpenAIApiDeploymentName || 'Not configured'}
+                    {azureConfig.azureOpenAIApiDeploymentName ||
+                      "Not configured"}
                   </div>
                 </div>
               </div>
-              
+
               <div className="text-sm text-[#94A3B8] p-3 bg-[#0F172A] rounded-lg">
                 <p className="font-medium mb-2">Configuration via .env file:</p>
                 <ul className="space-y-1 list-disc list-inside">
-                  <li>Configuration is loaded from the .env file in the project root</li>
-                  <li>Environment variables: VITE_AZURE_SPEECH_KEY, VITE_AZURE_SPEECH_REGION</li>
-                  <li>For AI features: VITE_AZURE_OPENAI_API_KEY, VITE_AZURE_OPENAI_ENDPOINT, VITE_AZURE_OPENAI_API_DEPLOYMENT_NAME</li>
-                  <li>Restart the development server after updating the .env file</li>
+                  <li>
+                    Configuration is loaded from the .env file in the project
+                    root
+                  </li>
+                  <li>
+                    Environment variables: VITE_AZURE_SPEECH_KEY,
+                    VITE_AZURE_SPEECH_REGION
+                  </li>
+                  <li>
+                    For AI features: VITE_AZURE_OPENAI_API_KEY,
+                    VITE_AZURE_OPENAI_ENDPOINT,
+                    VITE_AZURE_OPENAI_API_DEPLOYMENT_NAME
+                  </li>
+                  <li>
+                    Restart the development server after updating the .env file
+                  </li>
                 </ul>
               </div>
             </CardContent>
@@ -387,6 +464,193 @@ export function Settings({ onNavigate }: SettingsProps) {
                       </label>
                     </div>
                   ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Cloud Storage Configuration */}
+          <Card className="bg-[#1E293B] border-[#334155]">
+            <CardHeader>
+              <CardTitle className="text-[#F8FAFC]">Cloud Storage</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <label className="font-medium text-[#F8FAFC]">
+                      Enable Cloud Sync
+                    </label>
+                    <p className="text-sm text-[#94A3B8]">
+                      Sync sessions across devices using Azure Blob Storage
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={cloudSyncEnabled}
+                    disabled={usingEnvConfig}
+                    onCheckedChange={(checked) => {
+                      if (!usingEnvConfig) {
+                        setCloudSyncEnabled(checked);
+                        localStorage.setItem('enableCloudSync', checked.toString());
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className={`space-y-4 pl-4 border-l-2 border-[#334155] ${!cloudSyncEnabled ? 'opacity-50' : ''}`}>
+                  {usingEnvConfig ? (
+                    <div className="p-3 bg-[#065F46] border border-[#059669] rounded-lg">
+                      <p className="text-sm text-[#D1FAE5] mb-2">
+                        ✅ <strong>Configuration from .env file</strong>
+                      </p>
+                      <p className="text-sm text-[#A7F3D0]">
+                        Azure Blob Storage is configured via environment variables.
+                        Cloud sync is automatically enabled.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[#94A3B8]">
+                      Configure Azure Blob Storage to enable cloud sync
+                    </p>
+                  )}
+                  
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-[#F8FAFC]">Connection String</Label>
+                      <input
+                        type="password"
+                        placeholder={usingEnvConfig ? "Configured in .env file" : "DefaultEndpointsProtocol=https;AccountName=..."}
+                        className="w-full bg-[#0F172A] border border-[#334155] rounded px-3 py-2 text-[#F8FAFC] placeholder-[#64748B]"
+                        value={connectionString}
+                        onChange={(e) => {
+                          setConnectionString(e.target.value);
+                          localStorage.setItem('azureBlobConnectionString', e.target.value);
+                        }}
+                        disabled={!cloudSyncEnabled || usingEnvConfig}
+                      />
+                      {usingEnvConfig && (
+                        <p className="text-xs text-[#94A3B8]">
+                          To change this, update VITE_AZURE_BLOB_CONNECTION_STRING in your .env file
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-[#F8FAFC]">Container Name</Label>
+                      <input
+                        type="text"
+                        placeholder={usingEnvConfig ? "Configured in .env file" : "ai-transcriptions"}
+                        className="w-full bg-[#0F172A] border border-[#334155] rounded px-3 py-2 text-[#F8FAFC] placeholder-[#64748B]"
+                        value={containerName}
+                        onChange={(e) => {
+                          setContainerName(e.target.value);
+                          localStorage.setItem('azureBlobContainerName', e.target.value);
+                        }}
+                        disabled={!cloudSyncEnabled || usingEnvConfig}
+                      />
+                      {usingEnvConfig && (
+                        <p className="text-xs text-[#94A3B8]">
+                          To change this, update VITE_AZURE_BLOB_CONTAINER_NAME in your .env file
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        className="bg-[#4B5563] hover:bg-[#374151] text-white"
+                        disabled={!cloudSyncEnabled || (!usingEnvConfig && !connectionString)}
+                        onClick={async () => {
+                          try {
+                            await syncToCloud();
+                            alert('Successfully synced to cloud!');
+                            loadStorageStats();
+                          } catch (error) {
+                            alert('Failed to sync to cloud. Please check your configuration.');
+                          }
+                        }}
+                      >
+                        Sync to Cloud
+                      </Button>
+                      
+                      <Button 
+                        variant="outline"
+                        className="bg-[#1E293B] border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
+                        disabled={!cloudSyncEnabled || (!usingEnvConfig && !connectionString)}
+                        onClick={async () => {
+                          try {
+                            await syncFromCloud();
+                            alert('Successfully synced from cloud!');
+                            loadStorageStats();
+                          } catch (error) {
+                            alert('Failed to sync from cloud. Please check your configuration.');
+                          }
+                        }}
+                      >
+                        Sync from Cloud
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-sm text-[#94A3B8] p-3 bg-[#0F172A] rounded-lg">
+                  <p className="font-medium mb-2">Storage Statistics:</p>
+                  <ul className="space-y-1">
+                    <li>• Local sessions: {storageStats.local?.totalSessions || 0}</li>
+                    <li>• Storage used: {Math.round((storageStats.local?.totalSizeBytes || 0) / 1024)} KB</li>
+                    <li>• Cloud sync: {storageStats.sync?.isCloudAvailable ? 'Available' : 'Not available'}</li>
+                    <li>• Unsynced sessions: {storageStats.sync?.unsyncedSessions || 0}</li>
+                  </ul>
+                  
+                  <div className="flex gap-2 mt-3">
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      className="bg-[#1E293B] border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
+                      onClick={async () => {
+                        try {
+                          const data = await exportSessions();
+                          const blob = new Blob([data], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `transcription-sessions-${new Date().toISOString().split('T')[0]}.json`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        } catch (error) {
+                          alert('Failed to export sessions.');
+                        }
+                      }}
+                    >
+                      Export Sessions
+                    </Button>
+                    
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      className="bg-[#1E293B] border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = '.json';
+                        input.onchange = async (e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0];
+                          if (file) {
+                            try {
+                              const text = await file.text();
+                              const result = await importSessions(text);
+                              alert(`Imported ${result.imported} sessions. ${result.errors.length} errors.`);
+                              loadStorageStats();
+                            } catch (error) {
+                              alert('Failed to import sessions.');
+                            }
+                          }
+                        };
+                        input.click();
+                      }}
+                    >
+                      Import Sessions
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>

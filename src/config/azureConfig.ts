@@ -31,8 +31,8 @@ export const getAzureConfig = (): Promise<AzureConfig> => {
 
       // Clean endpoint URL (remove deployment path if present)
       let cleanEndpoint = openAIEndpoint;
-      if (cleanEndpoint && cleanEndpoint.includes('/deployments/')) {
-        cleanEndpoint = cleanEndpoint.split('/openai/deployments/')[0];
+      if (cleanEndpoint && cleanEndpoint.includes("/deployments/")) {
+        cleanEndpoint = cleanEndpoint.split("/openai/deployments/")[0];
       }
 
       resolve({
