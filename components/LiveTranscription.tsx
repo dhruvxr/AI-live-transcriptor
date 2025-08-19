@@ -12,7 +12,6 @@ import {
   Square,
   Download,
   Bot,
-  MessageSquare,
   ArrowLeft,
   Clock,
   HelpCircle,
@@ -27,7 +26,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "./ui/dialog";
-import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { getAIResponseStream } from "../src/services/azureOpenAIService-fixed";
 import {
@@ -48,7 +46,7 @@ interface TranscriptData {
 }
 
 type NavigateFunction = (
-  page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
+  page: "dashboard" | "live" | "sessions" | "session-detail",
   sessionId?: string
 ) => void;
 
@@ -76,7 +74,7 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentSpeech, setCurrentSpeech] = useState("");
-  const [sessionTitle, setSessionTitle] = useState("");
+  // const [sessionTitle, setSessionTitle] = useState("");
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
 
   // Recording duration tracking
@@ -109,10 +107,10 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     return { name: 'Unknown', supportsSystemAudio: 'none' };
   };
 
-  // Enhanced AI interaction state
+  // Enhanced AI interaction state (preserved for future use)
   const [
     selectedTranscriptForClarification,
-    setSelectedTranscriptForClarification,
+    // setSelectedTranscriptForClarification,
   ] = useState<TranscriptItem | null>(null);
   const [isClarificationPanelOpen, setIsClarificationPanelOpen] =
     useState(false);
@@ -564,7 +562,7 @@ Please provide a helpful explanation or clarification.`;
     }
 
     const transcriptData: TranscriptData = {
-      title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
+      title: `Transcript ${new Date().toLocaleDateString()}`,
       content: transcript
         .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
         .join("\n"),
@@ -582,7 +580,7 @@ Please provide a helpful explanation or clarification.`;
     }
 
     const transcriptData: TranscriptData = {
-      title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
+      title: `Transcript ${new Date().toLocaleDateString()}`,
       content: transcript
         .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
         .join("\n"),
@@ -600,7 +598,7 @@ Please provide a helpful explanation or clarification.`;
     }
 
     const transcriptData: TranscriptData = {
-      title: sessionTitle || `Transcript ${new Date().toLocaleDateString()}`,
+      title: `Transcript ${new Date().toLocaleDateString()}`,
       content: transcript
         .map((item) => `[${formatTime(item.timestamp)}] ${item.content}`)
         .join("\n"),
@@ -645,9 +643,7 @@ Please provide a helpful explanation or clarification.`;
         speaker: item.speaker,
       }));
 
-      const title =
-        sessionTitle ||
-        `Saved Transcript ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+      const title = `Saved Transcript ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
 
       // Create a new session with the current transcript
       const session = await createSession({
@@ -697,232 +693,328 @@ Please provide a helpful explanation or clarification.`;
     const isSystemAudioError = error.includes("System audio") || error.includes("getDisplayMedia");
     
     return (
-      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center">
-        <div className="text-center max-w-md p-8 bg-[#1E293B] rounded-lg shadow-lg">
-          <h1 className="text-2xl font-bold text-red-500 mb-4">
-            {isSystemAudioError ? "System Audio Error" : "Transcription Error"}
-          </h1>
-          <p className="text-md text-[#94A3B8] mb-6">{error}</p>
-          
-          {isSystemAudioError ? (
-            <div className="text-sm text-[#94A3B8] mb-6 space-y-2">
-              <p className="font-semibold text-[#F8FAFC]">To use system audio capture:</p>
-              <ul className="text-left space-y-1">
-                <li>• Use Chrome or Edge browser</li>
-                <li>• When prompted, select "Share tab audio" or "Share system audio"</li>
-                <li>• Make sure audio is enabled in the sharing dialog</li>
-                <li>• Try microphone-only mode as an alternative</li>
-              </ul>
-            </div>
-          ) : (
-            <p className="text-sm text-[#94A3B8] mb-6">
-              Please check your speech service configuration in the settings page.
-            </p>
-          )}
-          
-          <div className="flex justify-center gap-4">
-            {!isSystemAudioError && (
-              <Button
-                onClick={() => onNavigate("settings")}
-                variant="outline"
-                className="border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
-              >
-                Go to Settings
-              </Button>
-            )}
+      <div className="min-h-screen bg-[#0F172A]">
+        {/* Header - Bubble Style */}
+        <div className="relative">
+          {/* Glow effect underneath */}
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/20 via-blue-400/10 to-transparent blur-xl -z-10"></div>
+          <header className="flex items-center justify-between px-8 py-6 mx-6 mt-0 bg-gradient-to-br from-[#1E293B]/90 via-[#334155]/80 to-[#475569]/70 backdrop-blur-xl border border-[#475569]/50 rounded-b-3xl shadow-2xl shadow-blue-500/20 sticky top-0 z-10">
+          <div className="flex items-center gap-3">
             <Button
-              onClick={() => {
-                setError(null);
-                setIsRecording(false);
-                // If it was a system audio error, disable system audio for next attempt
-                if (isSystemAudioError) {
-                  setAudioOptions(prev => ({ ...prev, captureSystemAudio: false }));
-                }
-              }}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
+              variant="ghost"
+              size="sm"
+              onClick={() => onNavigate("dashboard")}
+              className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
             >
-              {isSystemAudioError ? "Try Microphone Only" : "Back"}
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
             </Button>
+            <div className="flex items-center">
+              <img
+                src="/src/assets/Logo.svg"
+                alt="AI Transcriptor"
+                className="h-16 w-auto"
+              />
+            </div>
           </div>
+        </header>
         </div>
+
+        {/* Error Content */}
+        <main className="p-6 max-w-7xl mx-auto">
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <div className="text-center max-w-md p-8 bg-[#1E293B] rounded-lg shadow-lg border border-[#334155]">
+              <div className="w-16 h-16 mx-auto mb-6 bg-red-500/20 rounded-full flex items-center justify-center">
+                <span className="text-3xl">⚠️</span>
+              </div>
+              
+              <h1 className="text-2xl font-bold text-red-400 mb-4">
+                {isSystemAudioError ? "System Audio Error" : "Transcription Error"}
+              </h1>
+              <p className="text-md text-[#94A3B8] mb-6">{error}</p>
+              
+              {isSystemAudioError ? (
+                <div className="text-sm text-[#94A3B8] mb-6 space-y-3">
+                  <p className="font-semibold text-[#F8FAFC]">To use system audio capture:</p>
+                  <ul className="text-left space-y-1 bg-[#0F172A] p-3 rounded border border-[#334155]">
+                    <li>• Use Chrome or Edge browser</li>
+                    <li>• When prompted, select "Share tab audio" or "Share system audio"</li>
+                    <li>• Make sure audio is enabled in the sharing dialog</li>
+                    <li>• Try microphone-only mode as an alternative</li>
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-sm text-[#94A3B8] mb-6">
+                  Please check your speech service configuration.
+                </p>
+              )}
+              
+              <div className="flex justify-center gap-3">
+                <Button
+                  onClick={() => {
+                    setError(null);
+                    setIsRecording(false);
+                    // If it was a system audio error, disable system audio for next attempt
+                    if (isSystemAudioError) {
+                      setAudioOptions(prev => ({ ...prev, captureSystemAudio: false }));
+                    }
+                  }}
+                  className="bg-[#6366F1] hover:bg-[#5B5CF6] text-white"
+                >
+                  {isSystemAudioError ? "Try Microphone Only" : "Try Again"}
+                </Button>
+                
+                <Button
+                  onClick={() => onNavigate("dashboard")}
+                  variant="outline"
+                  className="border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
+                >
+                  Back to Home
+                </Button>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
 
   if (!isRecording) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center">
-        <div className="text-center">
-          <div className="h-32 w-auto mx-auto mb-8 flex items-center justify-center">
-            <h1 className="text-6xl font-bold text-white">🎙️</h1>
-          </div>
-          <h1 className="text-4xl font-bold text-white mb-4">
-            Ready to Transcribe
-          </h1>
-          <p className="text-lg text-[#94A3B8] mb-8">
-            Press the button to start your live transcription session.
-          </p>
-          
-          {/* Audio Source Selection */}
-          <div className="mb-6 p-4 bg-[#1E293B] rounded-lg border border-[#334155]">
-            <h3 className="text-white font-semibold mb-3">Audio Sources</h3>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Mic className="w-4 h-4 text-[#94A3B8]" />
-                  <span className="text-[#F8FAFC]">Microphone</span>
-                </div>
-                <Switch
-                  checked={audioOptions.captureMicrophone}
-                  onCheckedChange={(checked) =>
-                    setAudioOptions(prev => ({ ...prev, captureMicrophone: checked }))
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🔊</span>
-                  <span className="text-[#F8FAFC]">System Audio</span>
-                  {!isSystemAudioSupported() && (
-                    <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                      Not supported
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={audioOptions.captureSystemAudio}
-                    disabled={!isSystemAudioSupported()}
-                    onCheckedChange={(checked) =>
-                      setAudioOptions(prev => ({ ...prev, captureSystemAudio: checked }))
-                    }
-                  />
-                  {audioOptions.captureSystemAudio && isSystemAudioSupported() && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          const stream = await (navigator.mediaDevices as any).getDisplayMedia({
-                            video: false,
-                            audio: true
-                          });
-                          stream.getTracks().forEach((track: any) => track.stop());
-                          alert("✅ System audio test successful! You can now start recording with system audio.");
-                        } catch (error) {
-                          alert(`❌ System audio test failed: ${error}. Please use microphone-only mode.`);
-                          setAudioOptions(prev => ({ ...prev, captureSystemAudio: false }));
-                        }
-                      }}
-                      className="text-xs px-2 py-1 h-6 border-blue-500 text-blue-300 hover:bg-blue-500/20"
-                    >
-                      Test
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-            {audioOptions.captureSystemAudio && isSystemAudioSupported() && (
-              <div className="text-xs text-[#94A3B8] mt-2 space-y-1">
-                <p>⚠️ System audio capture requires:</p>
-                {(() => {
-                  const browserInfo = getBrowserInfo();
-                  if (browserInfo.name === 'Firefox') {
-                    return (
-                      <ul className="text-left space-y-1 ml-4">
-                        <li>• Click "Allow" when prompted for screen sharing</li>
-                        <li>• Select your screen or application window</li>
-                        <li>• <strong>Check "Share system audio"</strong> in the dialog</li>
-                        <li>• Have audio playing (music, videos, etc.)</li>
-                        <li>• Note: Firefox may require video sharing enabled</li>
-                      </ul>
-                    );
-                  } else {
-                    return (
-                      <ul className="text-left space-y-1 ml-4">
-                        <li>• Click "Share your screen" when prompted</li>
-                        <li>• Select "Share tab audio" or "Share system audio"</li>
-                        <li>• Enable audio in the sharing dialog</li>
-                        <li>• Have audio playing (music, videos, etc.)</li>
-                      </ul>
-                    );
-                  }
-                })()}
-                <p className="text-blue-400 font-medium">
-                  💡 Use the "Test" button to check if it works in your browser ({getBrowserInfo().name}).
-                </p>
-              </div>
-            )}
-            {audioOptions.captureSystemAudio && !isSystemAudioSupported() && (
-              <div className="text-xs text-yellow-400 mt-2 p-2 bg-yellow-500/10 rounded">
-                System audio is not supported in your current browser. Please use Chrome (74+), Edge (79+), or Firefox (66+) for system audio capture.
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col items-center gap-4">
+      <div className="min-h-screen bg-[#0F172A]">
+        {/* Header - Bubble Style */}
+        <div className="relative">
+          {/* Glow effect underneath */}
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/20 via-blue-400/10 to-transparent blur-xl -z-10"></div>
+          <header className="flex items-center justify-between px-8 py-6 mx-6 mt-0 bg-gradient-to-br from-[#1E293B]/90 via-[#334155]/80 to-[#475569]/70 backdrop-blur-xl border border-[#475569]/50 rounded-b-3xl shadow-2xl shadow-blue-500/20 sticky top-0 z-10">
+          <div className="flex items-center gap-3">
             <Button
-              onClick={handleStartSession}
-              size="lg"
-              className="bg-green-500 hover:bg-green-600 text-white"
-              disabled={!audioOptions.captureMicrophone && !audioOptions.captureSystemAudio}
-            >
-              <Mic className="w-6 h-6 mr-2" />
-              Start Session
-            </Button>
-            
-            {!audioOptions.captureMicrophone && !audioOptions.captureSystemAudio && (
-              <p className="text-sm text-red-400">
-                Please select at least one audio source
-              </p>
-            )}
-
-            <Button
-              onClick={handleSaveTranscript}
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="text-[#F8FAFC] bg-blue-600 hover:bg-blue-700 border-blue-500"
-              disabled={transcript.length === 0}
-              title="Save transcript to sessions"
+              onClick={() => onNavigate("dashboard")}
+              className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
             >
-              <Save className="w-4 h-4 mr-1" />
-              Save Transcript
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
             </Button>
+            <div className="flex items-center">
+              <img
+                src="/src/assets/Logo.svg"
+                alt="AI Transcriptor"
+                className="h-16 w-auto"
+              />
+            </div>
           </div>
+        </header>
         </div>
+
+        {/* Main Content */}
+        <main className="p-6 max-w-7xl mx-auto">
+          {/* Hero Section - Ready to Transcribe Style */}
+          <div className="text-center mb-12 mt-16">
+            {/* Enhanced Microphone Icon with Animation */}
+            <div className="relative w-40 h-40 mx-auto mb-8">
+              {/* Outer glow ring */}
+              <div className="absolute inset-0 bg-gradient-to-br from-[#6366F1]/30 via-[#5B5CF6]/20 to-[#4F46E5]/10 rounded-full animate-pulse" style={{animationDuration: '3s'}}></div>
+              {/* Middle ring */}
+              <div className="absolute inset-2 bg-gradient-to-br from-[#6366F1]/40 via-[#5B5CF6]/30 to-[#4F46E5]/20 rounded-full animate-pulse" style={{animationDelay: '0.5s', animationDuration: '3s'}}></div>
+              {/* Inner circle */}
+              <div className="absolute inset-4 bg-gradient-to-br from-[#6366F1] via-[#5B5CF6] to-[#4F46E5] rounded-full flex items-center justify-center shadow-2xl animate-pulse" style={{animationDelay: '1s', animationDuration: '3s'}}>
+                <Mic className="w-20 h-20 text-white drop-shadow-lg" />
+              </div>
+              {/* Decorative dots - blue themed */}
+              <div className="absolute -top-2 -right-2 w-4 h-4 bg-[#3B82F6] rounded-full animate-ping" style={{animationDuration: '2s'}}></div>
+              <div className="absolute -bottom-2 -left-2 w-3 h-3 bg-[#1D4ED8] rounded-full animate-ping" style={{animationDelay: '1s', animationDuration: '2s'}}></div>
+              <div className="absolute top-1/2 -right-3 w-2 h-2 bg-[#60A5FA] rounded-full animate-ping" style={{animationDelay: '1.5s', animationDuration: '2s'}}></div>
+            </div>
+            
+            <h2 className="text-4xl font-bold text-[#F8FAFC] mb-4">
+              Ready to Transcribe
+            </h2>
+            
+            <p className="text-lg text-[#94A3B8] mb-12 max-w-2xl mx-auto">
+              Press the button to start your live transcription session.
+            </p>
+
+            {/* Audio Source Selection Card */}
+            <div className="max-w-md mx-auto mb-8">
+              <Card className="bg-[#1E293B] border-[#334155]">
+                <CardContent className="p-6">
+                  <h3 className="text-[#F8FAFC] font-semibold mb-4 text-center">Audio Sources</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-[#0F172A] rounded-lg border border-[#334155]">
+                      <div className="flex items-center gap-3">
+                        <Mic className="w-5 h-5 text-[#6366F1]" />
+                        <span className="text-[#F8FAFC]">Microphone</span>
+                      </div>
+                      <Switch
+                        checked={audioOptions.captureMicrophone}
+                        onCheckedChange={(checked) =>
+                          setAudioOptions(prev => ({ ...prev, captureMicrophone: checked }))
+                        }
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-[#0F172A] rounded-lg border border-[#334155]">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[#6366F1] text-xl">🔊</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[#F8FAFC]">System Audio</span>
+                          {!isSystemAudioSupported() && (
+                            <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">
+                              Not supported
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={audioOptions.captureSystemAudio}
+                          disabled={!isSystemAudioSupported()}
+                          onCheckedChange={(checked) =>
+                            setAudioOptions(prev => ({ ...prev, captureSystemAudio: checked }))
+                          }
+                        />
+                        {audioOptions.captureSystemAudio && isSystemAudioSupported() && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const stream = await (navigator.mediaDevices as any).getDisplayMedia({
+                                  video: false,
+                                  audio: true
+                                });
+                                stream.getTracks().forEach((track: any) => track.stop());
+                                alert("✅ System audio test successful! You can now start recording with system audio.");
+                              } catch (error) {
+                                alert(`❌ System audio test failed: ${error}. Please use microphone-only mode.`);
+                                setAudioOptions(prev => ({ ...prev, captureSystemAudio: false }));
+                              }
+                            }}
+                            className="text-xs px-2 py-1 h-6 border-[#6366F1] text-[#6366F1] hover:bg-[#6366F1]/20"
+                          >
+                            Test
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Audio Source Information */}
+                  {audioOptions.captureSystemAudio && isSystemAudioSupported() && (
+                    <div className="mt-4 p-3 bg-[#0F172A]/50 rounded-lg border border-[#6366F1]/20">
+                      <div className="text-xs text-[#94A3B8] space-y-2">
+                        <p className="text-[#F8FAFC] font-medium">⚠️ System audio capture requires:</p>
+                        {(() => {
+                          const browserInfo = getBrowserInfo();
+                          if (browserInfo.name === 'Firefox') {
+                            return (
+                              <ul className="text-left space-y-1 ml-4">
+                                <li>• Click "Allow" when prompted for screen sharing</li>
+                                <li>• Select your screen or application window</li>
+                                <li>• <strong>Check "Share system audio"</strong> in the dialog</li>
+                                <li>• Have audio playing (music, videos, etc.)</li>
+                                <li>• Note: Firefox may require video sharing enabled</li>
+                              </ul>
+                            );
+                          } else {
+                            return (
+                              <ul className="text-left space-y-1 ml-4">
+                                <li>• Click "Share your screen" when prompted</li>
+                                <li>• Select "Share tab audio" or "Share system audio"</li>
+                                <li>• Enable audio in the sharing dialog</li>
+                                <li>• Have audio playing (music, videos, etc.)</li>
+                              </ul>
+                            );
+                          }
+                        })()}
+                        <p className="text-[#6366F1] font-medium">
+                          💡 Use the "Test" button to check compatibility with {getBrowserInfo().name}.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {audioOptions.captureSystemAudio && !isSystemAudioSupported() && (
+                    <div className="mt-4 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                      <p className="text-xs text-yellow-400">
+                        System audio is not supported in your current browser. Please use Chrome (74+), Edge (79+), or Firefox (66+) for system audio capture.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col items-center gap-4">
+              <Button
+                onClick={handleStartSession}
+                size="lg"
+                className="bg-[#10B981] hover:bg-[#059669] text-white px-8 py-3 text-lg"
+                disabled={!audioOptions.captureMicrophone && !audioOptions.captureSystemAudio}
+              >
+                <Mic className="w-6 h-6 mr-3" />
+                Start Session
+              </Button>
+              
+              {!audioOptions.captureMicrophone && !audioOptions.captureSystemAudio && (
+                <p className="text-sm text-red-400">
+                  Please select at least one audio source
+                </p>
+              )}
+
+              <Button
+                onClick={handleSaveTranscript}
+                variant="outline"
+                className="bg-[#3B82F6] hover:bg-[#2563EB] text-white border-[#3B82F6]"
+                disabled={transcript.length === 0}
+                title="Save transcript to sessions"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Save Transcript
+              </Button>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#0F172A] flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between p-4 border-b border-[#1E293B] bg-[#0F172A]/95 backdrop-blur-sm sticky top-0 z-10">
+      {/* Header - Bubble Style */}
+      <div className="relative">
+        {/* Glow effect underneath */}
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/20 via-blue-400/10 to-transparent blur-xl -z-10"></div>
+        <header className="flex items-center justify-between px-8 py-6 mx-6 mt-0 bg-gradient-to-br from-[#1E293B]/90 via-[#334155]/80 to-[#475569]/70 backdrop-blur-xl border border-[#475569]/50 rounded-b-3xl shadow-2xl shadow-blue-500/20 sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onNavigate("dashboard")}
-            className="text-[#F8FAFC] hover:bg-[#1E293B]"
+            className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back
           </Button>
           <div className="flex items-center">
-            <div className="h-16 w-auto flex items-center justify-center">
-              <span className="text-2xl font-bold text-white">
-                🎙️ AI Transcriptor
-              </span>
-            </div>
+            <img
+              src="/src/assets/Logo.svg"
+              alt="AI Transcriptor"
+              className="h-16 w-auto"
+            />
           </div>
-          <Badge className="bg-green-500 text-white">
-            <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
-            Live
+          <Badge className={isPaused ? "bg-yellow-500 text-white" : "bg-green-500 text-white"}>
+            <div className={`w-2 h-2 bg-white rounded-full mr-2 ${isPaused ? '' : 'animate-pulse'}`}></div>
+            {isPaused ? 'Paused' : 'Live'}
           </Badge>
 
           {/* Audio Source Indicators */}
           <div className="flex items-center gap-1">
             {audioOptions.captureMicrophone && (
-              <Badge variant="outline" className="bg-blue-500/20 border-blue-500 text-blue-300">
+              <Badge variant="outline" className="bg-[#6366F1]/20 border-[#6366F1] text-[#6366F1]">
                 <Mic className="w-3 h-3 mr-1" />
                 Mic
               </Badge>
@@ -944,18 +1036,25 @@ Please provide a helpful explanation or clarification.`;
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {/* Quick Question Button */}
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsQuickQuestionOpen(true)}
             disabled={transcript.length === 0}
-            className="border-[#334155] text-[#F8FAFC] hover:bg-[#334155]"
-            title="Ask GPT-4o a question about what was said"
+            className={`${
+              transcript.length === 0 
+                ? 'border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed' 
+                : 'border-[#10B981] bg-[#10B981]/10 text-[#10B981] hover:bg-[#10B981]/20 hover:border-[#059669] shadow-lg'
+            }`}
+            title={transcript.length === 0 
+              ? "Start speaking to ask questions about the transcript" 
+              : "Ask GPT-4o a question about what was said"
+            }
           >
             <HelpCircle className="w-4 h-4 mr-1" />
-            Ask GPT-4o
+            Ask AI
           </Button>
 
           <Button
@@ -967,22 +1066,36 @@ Please provide a helpful explanation or clarification.`;
           </Button>
         </div>
       </header>
+      </div>
 
-      {/* Status Bar */}
-      <div className="px-4 py-2 bg-[#1E293B] border-b border-[#334155]">
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4">
-            {isPaused ? (
-              <span className="text-yellow-400 flex items-center gap-2">
-                <MicOff className="w-4 h-4" /> Paused
-              </span>
-            ) : (
-              <span className="text-[#10B981] flex items-center gap-2">
-                <Mic className="w-4 h-4" /> Recording
-              </span>
+      {/* Status Bar - Properly Separated */}
+      <div className="mt-6 mx-6">
+        <div className="bg-gradient-to-r from-[#334155]/60 via-[#475569]/50 to-[#334155]/60 backdrop-blur-sm rounded-2xl border border-[#64748B]/30 shadow-lg p-4">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-6">
+              {/* Recording Status */}
+              {isPaused ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F59E0B]/20 rounded-full border border-[#F59E0B]/30">
+                  <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                  <span className="text-yellow-300 font-medium">Recording Paused</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#10B981]/20 rounded-full border border-[#10B981]/30">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-green-300 font-medium">Recording Active</span>
+                </div>
             )}
+            
+            {/* AI Question Detection Status */}
+            {transcript.some(item => item.type === 'question') && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#3B82F6]/20 rounded-full border border-[#3B82F6]/30">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                <span className="text-blue-300 font-medium">AI Questions Detected</span>
+              </div>
+            )}
+            
             {isGeneratingAnswer && (
-              <span className="text-[#10B981] flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#10B981]/20 rounded-full border border-[#10B981]/30">
                 <div className="flex gap-1">
                   <div className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"></div>
                   <div
@@ -994,150 +1107,123 @@ Please provide a helpful explanation or clarification.`;
                     style={{ animationDelay: "0.2s" }}
                   ></div>
                 </div>
-                GPT-4o Generating Answer...
-              </span>
+                <span className="text-[#10B981] font-medium">AI Answering...</span>
+              </div>
             )}
-          </div>
-          <div className="text-[#94A3B8]">
-            {/* Session Duration can be implemented here */}
+            </div>
+            <div className="px-3 py-1.5 bg-[#0F172A]/50 rounded-full border border-[#64748B]/30">
+              <span className="text-[#94A3B8] font-medium">Session Duration: {currentRecordingTime}</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Transcript Area */}
-      <div className="flex-1 overflow-hidden">
-        <div ref={scrollRef} className="h-full overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-hidden bg-gradient-to-b from-[#0F172A] via-[#1E293B]/20 to-[#0F172A] mt-4">
+        <div ref={scrollRef} className="h-full overflow-y-auto px-6 py-4 space-y-4">
           {transcript.length === 0 && !isPaused && (
-            <div className="flex flex-col items-center justify-center h-full text-center text-[#94A3B8]">
-              <Mic className="w-16 h-16 mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-2">
+            <div className="flex flex-col items-center justify-center h-full text-center text-[#94A3B8] py-20">
+              <div className="relative">
+                <div className="w-24 h-24 bg-gradient-to-br from-[#6366F1]/20 to-[#8B5CF6]/20 rounded-full flex items-center justify-center mb-6 shadow-2xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#6366F1]/30 to-[#8B5CF6]/30 rounded-full animate-pulse"></div>
+                  <Mic className="w-12 h-12 text-[#6366F1] animate-pulse relative z-10" />
+                </div>
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-3">
                 Listening...
               </h2>
-              <p>Start speaking and your words will appear here.</p>
+              <p className="text-lg mb-6 max-w-md">Start speaking and your words will appear here in real-time.</p>
+              <div className="flex items-center gap-3 px-4 py-2 bg-[#1E293B]/50 rounded-full border border-[#334155]">
+                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-green-400 font-medium">Recording Active</span>
+              </div>
             </div>
           )}
           {transcript.length === 0 && isPaused && (
-            <div className="flex flex-col items-center justify-center h-full text-center text-[#94A3B8]">
-              <MicOff className="w-16 h-16 mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-2">Paused</h2>
-              <p>Press "Resume" to continue transcription.</p>
+            <div className="flex flex-col items-center justify-center h-full text-center text-[#94A3B8] py-20">
+              <div className="relative">
+                <div className="w-24 h-24 bg-gradient-to-br from-[#F59E0B]/20 to-[#EAB308]/20 rounded-full flex items-center justify-center mb-6 shadow-2xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#F59E0B]/30 to-[#EAB308]/30 rounded-full"></div>
+                  <MicOff className="w-12 h-12 text-[#F59E0B] relative z-10" />
+                </div>
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-3">Paused</h2>
+              <p>Press "Resume Mic" to continue transcription.</p>
+              <div className="flex items-center gap-2 mt-4 text-sm">
+                <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                <span className="text-yellow-400">Recording Paused</span>
+              </div>
             </div>
           )}
           {transcript.map((item) => (
-            <div key={item.id} className="space-y-2">
+            <div key={item.id} className="space-y-3">
               {item.type === "speech" && (
                 <div className="group relative">
-                  <div
-                    className="flex gap-3 cursor-pointer hover:bg-[#1E293B]/80 p-3 rounded-lg transition-all duration-200 border border-transparent hover:border-[#334155] hover:shadow-lg"
-                    onClick={() => {
-                      setSelectedTranscriptForClarification(item);
-                      setIsClarificationPanelOpen(true);
-                      setClarificationAnswer("");
-                      setClarificationQuestion("");
-                    }}
-                  >
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#3B82F6] to-[#1E40AF] rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0 shadow-lg">
-                      {item.speaker?.charAt(0) || "S"}
+                  <div className="flex items-start gap-4 p-5 bg-gradient-to-r from-[#1E293B]/80 to-[#334155]/60 backdrop-blur-sm rounded-xl border border-[#334155]/50 hover:border-[#6366F1]/30 transition-all duration-200 shadow-lg hover:shadow-xl">
+                    <div className="w-10 h-10 bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg">
+                      {item.speaker?.charAt(0) || "P"}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-[#F8FAFC]">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="font-semibold text-[#F8FAFC] text-sm">
                           {item.speaker}:
                         </span>
-                        <span className="text-xs text-[#94A3B8]">
+                        <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
                           {formatTime(item.timestamp)}
                         </span>
-                        {item.confidence && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs border-[#64748B] text-[#64748B]"
-                          >
-                            {Math.round(item.confidence * 100)}% confidence
-                          </Badge>
-                        )}
                       </div>
-                      <p className="text-[#F8FAFC] leading-relaxed">
+                      <p className="text-[#F8FAFC] leading-relaxed text-base">
                         {item.content}
                       </p>
-                    </div>
-
-                    {/* Hover indicator with better styling */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center gap-1 text-[#10B981]">
-                      <span className="text-xs">Ask GPT-4o</span>
-                      <HelpCircle className="w-4 h-4" />
                     </div>
                   </div>
                 </div>
               )}
 
               {item.type === "question" && (
-                <Card className="bg-gradient-to-r from-[#1E3A8A]/20 to-[#1E40AF]/20 border-[#3B82F6] ml-4 shadow-lg">
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-2">
-                      <MessageSquare className="w-4 h-4 text-[#3B82F6] mt-1 flex-shrink-0" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-[#3B82F6]">
-                            Question Detected:
-                          </span>
-                          <span className="text-xs text-[#94A3B8]">
-                            {formatTime(item.timestamp)}
-                          </span>
-                          {item.questionConfidence && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs border-[#3B82F6] text-[#3B82F6]"
-                            >
-                              {Math.round(item.questionConfidence * 100)}%
-                              confidence
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-[#F8FAFC] leading-relaxed">
-                          {item.content}
-                        </p>
-                      </div>
+                <div className="bg-gradient-to-r from-[#1E3A8A]/20 to-[#3B82F6]/10 border border-[#3B82F6]/30 rounded-xl p-5 ml-8 shadow-lg backdrop-blur-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-[#3B82F6] to-[#1D4ED8] rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                      <HelpCircle className="w-4 h-4 text-white" />
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-semibold text-[#60A5FA] text-sm">
+                          Question Detected:
+                        </span>
+                        <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
+                          {formatTime(item.timestamp)}
+                        </span>
+                      </div>
+                      <p className="text-[#F8FAFC] leading-relaxed">
+                        {item.content}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {item.type === "answer" && (
-                <Card className="bg-gradient-to-r from-[#10B981]/10 via-[#059669]/10 to-[#047857]/10 border-[#10B981] ml-8 shadow-xl backdrop-blur-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
-                        <Bot className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold text-[#10B981] text-sm">
-                            GPT-4o Assistant
-                          </span>
-                          <Badge className="bg-[#10B981]/20 text-[#10B981] border-[#10B981]/30 text-xs">
-                            AI
-                          </Badge>
-                          <span className="text-xs text-[#94A3B8]">
-                            {formatTime(item.timestamp)}
-                          </span>
-                          {item.confidence && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs border-[#10B981]/40 text-[#10B981]"
-                            >
-                              {Math.round(item.confidence * 100)}% confidence
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="bg-[#0F172A]/50 p-3 rounded-lg border border-[#10B981]/20">
-                          <p className="text-[#F8FAFC] leading-relaxed">
-                            {item.content}
-                          </p>
-                        </div>
-                      </div>
+                <div className="bg-gradient-to-r from-[#0F172A]/90 to-[#1E293B]/80 border border-[#10B981]/30 rounded-xl p-5 ml-8 shadow-xl backdrop-blur-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                      <Bot className="w-4 h-4 text-white" />
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-semibold text-[#10B981] text-sm">
+                          AI Answer:
+                        </span>
+                        <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
+                          {formatTime(item.timestamp)}
+                        </span>
+                      </div>
+                      <p className="text-[#F8FAFC] leading-relaxed">
+                        {item.content}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           ))}
@@ -1361,68 +1447,61 @@ Please provide a helpful explanation or clarification.`;
       </Dialog>
 
       {/* Footer Controls */}
-      <footer className="p-4 border-t border-[#1E293B] bg-[#0F172A]/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor="voice-answer"
-                  className="text-sm text-[#F8FAFC]"
-                >
-                  Voice Answer
-                </label>
-                <Switch
-                  id="voice-answer"
-                  checked={voiceAnswerEnabled}
-                  onCheckedChange={setVoiceAnswerEnabled}
-                />
+      <footer className="relative">
+        {/* Glow effect above footer */}
+        <div className="absolute inset-x-0 -top-6 h-12 bg-gradient-to-t from-blue-500/10 via-blue-400/5 to-transparent blur-sm"></div>
+        <div className="bg-gradient-to-r from-[#1E293B]/95 via-[#334155]/90 to-[#1E293B]/95 backdrop-blur-xl border-t border-[#475569]/50 shadow-2xl">
+          <div className="p-6 max-w-6xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-8">
+                <div className="flex items-center gap-3 px-4 py-2 bg-[#0F172A]/50 rounded-full border border-[#334155]">
+                  <span className="text-sm text-[#F8FAFC] font-medium">Voice Answer</span>
+                  <Switch
+                    checked={voiceAnswerEnabled}
+                    onCheckedChange={setVoiceAnswerEnabled}
+                    className="data-[state=checked]:bg-[#6366F1]"
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor="session-title"
-                  className="text-sm text-[#F8FAFC]"
+              <div className="flex items-center gap-4">
+                <Button
+                  onClick={togglePauseResume}
+                  variant={isPaused ? "default" : "outline"}
+                  size="lg"
+                  className={isPaused 
+                    ? "bg-gradient-to-r from-[#10B981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white shadow-lg" 
+                    : "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444] hover:bg-[#EF4444] hover:text-white"
+                  }
                 >
-                  Session Title:
-                </label>
-                <Input
-                  id="session-title"
-                  value={sessionTitle}
-                  onChange={(e) => setSessionTitle(e.target.value)}
-                  placeholder="Enter session title..."
-                  className="bg-[#1E293B] border-[#334155] text-white w-64"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={togglePauseResume}
-              variant={isPaused ? "default" : "outline"}
-              className={
-                isPaused
-                  ? "bg-[#3B82F6] hover:bg-[#2563EB]"
-                  : "border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]"
-              }
-            >
-              {isPaused ? (
-                <Mic className="w-4 h-4 mr-2" />
-              ) : (
-                <MicOff className="w-4 h-4 mr-2" />
-              )}
-              {isPaused ? "Resume" : "Pause Mic"}
-            </Button>
+                  {isPaused ? (
+                    <>
+                      <Mic className="w-5 h-5 mr-2" />
+                      Resume Mic
+                    </>
+                  ) : (
+                    <>
+                      <MicOff className="w-5 h-5 mr-2" />
+                      Pause Mic
+                    </>
+                  )}
+                </Button>
 
             <div className="flex gap-2">
               <Button
                 onClick={handleSaveTranscript}
                 variant="outline"
                 size="sm"
-                className="text-[#F8FAFC] bg-blue-600 hover:bg-blue-700 border-blue-500"
+                className={`${
+                  transcript.length === 0 
+                    ? 'text-[#64748B] bg-gray-600/20 hover:bg-gray-600/20 border-gray-600 cursor-not-allowed' 
+                    : 'text-[#F8FAFC] bg-blue-600 hover:bg-blue-700 border-blue-500'
+                }`}
                 disabled={transcript.length === 0}
-                title="Save transcript to sessions"
+                title={transcript.length === 0 
+                  ? "Start speaking to save transcript" 
+                  : "Save transcript to sessions"
+                }
               >
                 <Save className="w-4 h-4 mr-1" />
                 Save
@@ -1432,8 +1511,13 @@ Please provide a helpful explanation or clarification.`;
                 onClick={handleExportAsText}
                 variant="outline"
                 size="sm"
-                className="border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]"
+                className={`${
+                  transcript.length === 0 
+                    ? 'border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed' 
+                    : 'border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]'
+                }`}
                 disabled={transcript.length === 0}
+                title={transcript.length === 0 ? "Start speaking to export transcript" : "Export as TXT file"}
               >
                 <Download className="w-4 h-4 mr-1" />
                 TXT
@@ -1443,8 +1527,13 @@ Please provide a helpful explanation or clarification.`;
                 onClick={handleExportAsPdf}
                 variant="outline"
                 size="sm"
-                className="border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]"
+                className={`${
+                  transcript.length === 0 
+                    ? 'border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed' 
+                    : 'border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]'
+                }`}
                 disabled={transcript.length === 0}
+                title={transcript.length === 0 ? "Start speaking to export transcript" : "Export as PDF file"}
               >
                 <Download className="w-4 h-4 mr-1" />
                 PDF
@@ -1454,12 +1543,19 @@ Please provide a helpful explanation or clarification.`;
                 onClick={handleExportAsWord}
                 variant="outline"
                 size="sm"
-                className="border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]"
+                className={`${
+                  transcript.length === 0 
+                    ? 'border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed' 
+                    : 'border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]'
+                }`}
                 disabled={transcript.length === 0}
+                title={transcript.length === 0 ? "Start speaking to export transcript" : "Export as Word document"}
               >
                 <Download className="w-4 h-4 mr-1" />
                 Word
               </Button>
+            </div>
+              </div>
             </div>
           </div>
         </div>

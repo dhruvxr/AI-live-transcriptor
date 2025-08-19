@@ -28,7 +28,7 @@ import {
 } from "../src/services/dataStorageService";
 
 type NavigateFunction = (
-  page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
+  page: "dashboard" | "live" | "sessions" | "session-detail",
   sessionId?: string
 ) => void;
 
@@ -162,37 +162,49 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
 
   return (
     <div className="min-h-screen bg-[#0F172A]">
-      {/* Header */}
-      <header className="flex items-center justify-between p-6 border-b border-[#1E293B]">
+      {/* Header - Bubble Style */}
+      <div className="relative">
+        {/* Glow effect underneath */}
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/20 via-blue-400/10 to-transparent blur-xl -z-10"></div>
+        <header className="flex items-center justify-between px-8 py-6 mx-6 mt-0 bg-gradient-to-br from-[#1E293B]/90 via-[#334155]/80 to-[#475569]/70 backdrop-blur-xl border border-[#475569]/50 rounded-b-3xl shadow-2xl shadow-blue-500/20 sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onNavigate("dashboard")}
-            className="text-[#F8FAFC] hover:bg-[#1E293B]"
+            className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
           </Button>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-white to-[#6D28D9] rounded-lg flex items-center justify-center">
-              <Mic className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-semibold">Past Sessions</h1>
+          <div className="flex items-center">
+            <img
+              src="/src/assets/Logo.svg"
+              alt="AI Transcriptor"
+              className="h-16 w-auto"
+            />
+          </div>
+          <div className="ml-4">
+            <h1 className="text-2xl font-bold text-[#F8FAFC]">Past Sessions</h1>
+            <p className="text-[#94A3B8] text-sm">View and manage your transcription history</p>
           </div>
         </div>
 
         <Button
           onClick={() => onNavigate("live")}
-          className="bg-gradient-to-r from-[#4B5563] to-[#6D28D9] hover:from-[#374151] hover:to-[#5B21B6] text-white shadow-md"
+          size="lg"
+          className="bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] hover:from-[#5B5CF6] hover:to-[#7C3AED] text-white shadow-lg hover:shadow-xl transition-all duration-200 font-semibold px-6 py-3"
         >
-          <Mic className="w-4 h-4 mr-2" />
-          New Session
+          <Mic className="w-5 h-5 mr-2" />
+          Start New Session
         </Button>
       </header>
+      </div>
 
-      {/* Search and Filter Bar */}
-      <div className="p-6 border-b border-[#1E293B] bg-[#1E293B]/50">
-        <div className="flex flex-col sm:flex-row gap-4 max-w-6xl mx-auto">
+      {/* Search and Filter Bar - Properly Separated */}
+      <div className="mt-6 mx-6">
+        <div className="bg-gradient-to-r from-[#334155]/60 via-[#475569]/50 to-[#334155]/60 backdrop-blur-sm rounded-2xl border border-[#64748B]/30 shadow-lg p-6">
+          <div className="flex flex-col sm:flex-row gap-4 max-w-6xl mx-auto">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#94A3B8] w-4 h-4" />
             <Input
@@ -269,11 +281,12 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
               </SelectContent>
             </Select>
           </div>
+          </div>
         </div>
       </div>
 
       {/* Results Summary */}
-      <div className="px-6 py-3 text-sm text-[#94A3B8]">
+      <div className="mx-6 mt-4 px-4 py-2 text-sm text-[#94A3B8] bg-[#1E293B]/30 rounded-lg">
         Showing {filteredSessions.length} of {sessions.length} sessions
       </div>
 

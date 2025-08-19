@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Dashboard } from "../components/Dashboard";
-import { Settings } from "../components/Settings";
 import { PastSessions } from "../components/PastSessions";
 import { LiveTranscription } from "../components/LiveTranscription";
 import { SessionDetail } from "../components/SessionDetail";
@@ -24,8 +23,6 @@ function App() {
         return <LiveTranscription onNavigate={navigate} />;
       case "transcription":
         return <LiveTranscription onNavigate={navigate} />;
-      case "settings":
-        return <Settings onNavigate={navigate} />;
       case "sessions":
         return <PastSessions onNavigate={navigate} />;
       case "past-sessions":

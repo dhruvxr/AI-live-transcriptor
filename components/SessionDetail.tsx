@@ -30,7 +30,7 @@ import {
 } from "../src/services/simpleExportService";
 
 type NavigateFunction = (
-  page: "dashboard" | "live" | "settings" | "sessions" | "session-detail",
+  page: "dashboard" | "live" | "sessions" | "session-detail",
   sessionId?: string
 ) => void;
 
@@ -200,16 +200,20 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
 
   return (
     <div className="min-h-screen bg-[#0F172A]">
-      {/* Header */}
-      <header className="flex items-center justify-between p-6 border-b border-[#1E293B]">
+      {/* Header - Bubble Style */}
+      <div className="relative">
+        {/* Glow effect underneath */}
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/20 via-blue-400/10 to-transparent blur-xl -z-10"></div>
+        <header className="flex items-center justify-between px-8 py-6 mx-6 mt-0 bg-gradient-to-br from-[#1E293B]/90 via-[#334155]/80 to-[#475569]/70 backdrop-blur-xl border border-[#475569]/50 rounded-b-3xl shadow-2xl shadow-blue-500/20 sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onNavigate("sessions")}
-            className="text-[#F8FAFC] hover:bg-[#1E293B]"
+            className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
           </Button>
           <div className="flex items-center">
             <img
@@ -218,13 +222,9 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
               className="h-16 w-auto"
             />
           </div>
-          <div>
-            <h1 className="text-2xl font-semibold text-[#F8FAFC]">
-              Session Details
-            </h1>
-            <p className="text-[#94A3B8]">
-              View and manage your transcription session
-            </p>
+          <div className="ml-4">
+            <h1 className="text-2xl font-bold text-[#F8FAFC]">Session Details</h1>
+            <p className="text-[#94A3B8] text-sm">View and manage your transcription session</p>
           </div>
         </div>
 
@@ -258,9 +258,10 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
           </Button>
         </div>
       </header>
+      </div>
 
       {/* Main Content */}
-      <main className="p-6 space-y-6">
+      <main className="mt-6 p-6 space-y-6">
         {/* Session Info Card */}
         <Card className="bg-[#1E293B] border-[#334155]">
           <CardContent className="p-6">
