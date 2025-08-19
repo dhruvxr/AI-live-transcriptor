@@ -31,24 +31,35 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     clearAllDummyData();
 
     // Load stats and recent sessions from storage
-    const sessionStats = getSessionStats();
-    setStats({
-      totalSessions: sessionStats.totalSessions,
-      totalHours: sessionStats.totalHours,
-      totalWords: sessionStats.totalWords,
-    });
+    const loadData = async () => {
+      try {
+        const sessionStats = await getSessionStats();
+        setStats({
+          totalSessions: sessionStats.totalSessions,
+          totalHours: sessionStats.totalHours,
+          totalWords: sessionStats.totalWords,
+        });
 
-    // Get the 3 most recent sessions
-    const allSessions = getAllSessions();
-    const recent = allSessions.slice(0, 3).map((session) => ({
-      id: session.id,
-      title: session.title,
-      date: session.date,
-      duration: session.duration,
-      type: session.type,
-      wordsCount: session.wordsCount,
-    }));
-    setRecentSessions(recent);
+        // Get the 3 most recent sessions
+        const allSessions = await getAllSessions();
+        const recent = allSessions.slice(0, 3).map((session) => ({
+          id: session.id,
+          title: session.title,
+          date: session.date,
+          duration: session.duration,
+          type: session.type,
+          wordsCount: session.wordsCount,
+        }));
+        setRecentSessions(recent);
+      } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+        // Set empty state if loading fails
+        setStats({ totalSessions: 0, totalHours: 0, totalWords: 0 });
+        setRecentSessions([]);
+      }
+    };
+
+    loadData();
   }, []);
 
   const statsDisplay = [

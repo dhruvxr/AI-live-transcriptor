@@ -59,21 +59,26 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
     clearAllDummyData();
 
     // Load sessions from storage on component mount
-    const loadSessions = () => {
-      const storedSessions = getAllSessions();
-      // Convert TranscriptionSession to Session format for UI compatibility
-      const formattedSessions = storedSessions.map((session) => ({
-        id: session.id,
-        title: session.title,
-        date: session.date,
-        time: session.startTime,
-        duration: session.duration,
-        type: session.type === "other" ? "lecture" : session.type, // Map 'other' to 'lecture' for UI
-        summary: session.summary || "No summary available",
-        questionsCount: session.questionsCount,
-        wordsCount: session.wordsCount,
-      }));
-      setSessions(formattedSessions);
+    const loadSessions = async () => {
+      try {
+        const storedSessions = await getAllSessions();
+        // Convert TranscriptionSession to Session format for UI compatibility
+        const formattedSessions = storedSessions.map((session) => ({
+          id: session.id,
+          title: session.title,
+          date: session.date,
+          time: session.startTime,
+          duration: session.duration,
+          type: session.type === "other" ? "lecture" : session.type, // Map 'other' to 'lecture' for UI
+          summary: session.summary || "No summary available",
+          questionsCount: session.questionsCount,
+          wordsCount: session.wordsCount,
+        }));
+        setSessions(formattedSessions);
+      } catch (error) {
+        console.error('Failed to load sessions:', error);
+        setSessions([]);
+      }
     };
 
     loadSessions();
@@ -81,22 +86,27 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
 
   const handleDeleteSession = async (sessionId: string) => {
     if (window.confirm("Are you sure you want to delete this session?")) {
-      const success = deleteSession(sessionId);
-      if (success) {
-        // Refresh the sessions list
-        const storedSessions = getAllSessions();
-        const formattedSessions = storedSessions.map((session) => ({
-          id: session.id,
-          title: session.title,
-          date: session.date,
-          time: session.startTime,
-          duration: session.duration,
-          type: session.type === "other" ? "lecture" : session.type,
-          summary: session.summary || "No summary available",
-          questionsCount: session.questionsCount,
-          wordsCount: session.wordsCount,
-        }));
-        setSessions(formattedSessions);
+      try {
+        const success = await deleteSession(sessionId);
+        if (success) {
+          // Refresh the sessions list
+          const storedSessions = await getAllSessions();
+          const formattedSessions = storedSessions.map((session) => ({
+            id: session.id,
+            title: session.title,
+            date: session.date,
+            time: session.startTime,
+            duration: session.duration,
+            type: session.type === "other" ? "lecture" : session.type,
+            summary: session.summary || "No summary available",
+            questionsCount: session.questionsCount,
+            wordsCount: session.wordsCount,
+          }));
+          setSessions(formattedSessions);
+        }
+      } catch (error) {
+        console.error('Failed to delete session:', error);
+        alert('Failed to delete session. Please try again.');
       }
     }
   };

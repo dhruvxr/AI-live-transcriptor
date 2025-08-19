@@ -29,26 +29,7 @@ export interface TranscriptItem {
 // Initialize hybrid storage (localStorage + optional Azure Blob)
 const initializeStorage = async () => {
   try {
-    // First, try to get configuration from environment variables
-    const envConnectionString = import.meta.env.VITE_AZURE_BLOB_CONNECTION_STRING;
-    const envContainerName = import.meta.env.VITE_AZURE_BLOB_CONTAINER_NAME || 'ai-transcriptions';
-    
-    if (envConnectionString) {
-      // Use environment variables
-      console.log('Found Azure Blob Storage configuration in environment variables');
-      await hybridStorageManager.initialize({
-        azureBlobConfig: {
-          connectionString: envConnectionString,
-          containerName: envContainerName
-        },
-        enableCloudSync: true,
-        autoSyncInterval: 5 // Sync every 5 minutes
-      });
-      console.log('Hybrid storage initialized with cloud sync from .env');
-      return;
-    }
-    
-    // Fallback: Check if user has Azure configuration in localStorage
+    // Check if user has Azure configuration
     const azureConfig = localStorage.getItem('azureBlobConfig');
     const enableCloudSync = localStorage.getItem('enableCloudSync') === 'true';
     
@@ -59,12 +40,12 @@ const initializeStorage = async () => {
         enableCloudSync: true,
         autoSyncInterval: 5 // Sync every 5 minutes
       });
-      console.log('Hybrid storage initialized with cloud sync from localStorage');
+      console.log('Hybrid storage initialized with cloud sync');
     } else {
       await hybridStorageManager.initialize({
         enableCloudSync: false
       });
-      console.log('Local storage initialized (no cloud configuration found)');
+      console.log('Local storage initialized');
     }
   } catch (error) {
     console.warn('Storage initialization failed, falling back to local-only:', error);
