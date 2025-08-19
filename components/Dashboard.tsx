@@ -88,11 +88,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/20 via-blue-400/10 to-transparent blur-xl -z-10"></div>
         <header className="flex items-center justify-between px-8 py-6 mx-6 mt-0 bg-gradient-to-br from-[#1E293B]/90 via-[#334155]/80 to-[#475569]/70 backdrop-blur-xl border border-[#475569]/50 rounded-b-3xl shadow-2xl shadow-blue-500/20 sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <div className="flex items-center">
+          <div className="flex items-center cursor-pointer" onClick={() => onNavigate("dashboard")}>
             <img
               src="/src/assets/Logo.svg"
               alt="AI Transcriptor"
-              className="h-16 w-auto"
+              className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
+              title="Go to Home"
             />
           </div>
         </div>

@@ -709,11 +709,12 @@ Please provide a helpful explanation or clarification.`;
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
-            <div className="flex items-center">
+            <div className="flex items-center cursor-pointer" onClick={() => onNavigate("dashboard")}>
               <img
                 src="/src/assets/Logo.svg"
                 alt="AI Transcriptor"
-                className="h-16 w-auto"
+                className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
+                title="Go to Home"
               />
             </div>
           </div>
@@ -797,11 +798,12 @@ Please provide a helpful explanation or clarification.`;
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
-            <div className="flex items-center">
+            <div className="flex items-center cursor-pointer" onClick={() => onNavigate("dashboard")}>
               <img
                 src="/src/assets/Logo.svg"
                 alt="AI Transcriptor"
-                className="h-16 w-auto"
+                className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
+                title="Go to Home"
               />
             </div>
           </div>
@@ -999,11 +1001,12 @@ Please provide a helpful explanation or clarification.`;
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back
           </Button>
-          <div className="flex items-center">
+          <div className="flex items-center cursor-pointer" onClick={() => onNavigate("dashboard")}>
             <img
               src="/src/assets/Logo.svg"
               alt="AI Transcriptor"
-              className="h-16 w-auto"
+              className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
+              title="Go to Home"
             />
           </div>
           <Badge className={isPaused ? "bg-yellow-500 text-white" : "bg-green-500 text-white"}>

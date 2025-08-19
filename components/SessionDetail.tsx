@@ -215,11 +215,12 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <div className="flex items-center">
+          <div className="flex items-center cursor-pointer" onClick={() => onNavigate("dashboard")}>
             <img
               src="/src/assets/Logo.svg"
               alt="AI Transcriptor"
-              className="h-16 w-auto"
+              className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
+              title="Go to Home"
             />
           </div>
           <div className="ml-4">
