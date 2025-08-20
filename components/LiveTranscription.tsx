@@ -817,17 +817,54 @@ Please provide a helpful and relevant answer based on the context of what was sa
     await startService();
   };
 
+  // End Session Confirmation Dialog
+  const [showEndSessionConfirm, setShowEndSessionConfirm] = useState(false);
+  // Save Session Dialog
+  const [showSaveSessionDialog, setShowSaveSessionDialog] = useState(false);
+  const [sessionTag, setSessionTag] = useState("");
+  const [sessionType, setSessionType] = useState<'lecture' | 'meeting' | 'interview' | 'other'>("lecture");
+
   const handleStopSession = async () => {
+    setShowEndSessionConfirm(true);
+  };
+
+  // When user confirms end session, show the save dialog
+  const confirmStopSession = async () => {
     if (isRecording) {
       await stopService();
     }
-
     setIsRecording(false);
     setSessionStartTime(null);
+    setShowEndSessionConfirm(false);
+    setShowSaveSessionDialog(true); // Always show save dialog after confirming end session
+  };
 
-    console.log(
-      "Recording stopped. Use 'Save Transcript' to save your session."
-    );
+  const cancelStopSession = () => {
+    setShowEndSessionConfirm(false);
+  };
+
+  // Save session with tag and type, then redirect
+  const handleSaveSessionWithTag = async () => {
+    if (!sessionTag.trim()) return;
+    await createSession({
+      title: "Session", // Optionally allow custom title
+      date: new Date().toISOString().split("T")[0],
+      startTime: sessionStartTime ? sessionStartTime.toISOString() : new Date().toISOString(),
+      duration: currentRecordingTime,
+      type: sessionType,
+      transcript: transcript
+        .map(item => ({
+          ...item,
+          type: (item.type === "answer" ? "ai_response" : item.type) as "speech" | "question" | "ai_response",
+          timestamp: item.timestamp instanceof Date ? item.timestamp.toISOString() : item.timestamp
+        }))
+        .filter(item => item.type === "speech" || item.type === "question" || item.type === "ai_response"),
+      summary: "",
+      tags: [sessionTag],
+      endTime: new Date().toISOString(),
+    });
+    setShowSaveSessionDialog(false);
+    onNavigate("sessions");
   };
 
   const togglePauseResume = async () => {
@@ -2531,6 +2568,59 @@ Please provide a helpful and relevant answer based on the context of what was sa
           </div>
         </div>
       </footer>
+
+      {/* End Session Confirmation Dialog */}
+      <Dialog open={showEndSessionConfirm} onOpenChange={setShowEndSessionConfirm}>
+        <DialogContent className="bg-white text-black">
+          <DialogHeader>
+            <DialogTitle>Are you sure you want to end this session?</DialogTitle>
+            <DialogDescription>
+              This will stop the current recording. You can still save the transcript afterwards.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelStopSession}>Cancel</Button>
+            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmStopSession}>End Session</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Session Dialog */}
+      <Dialog open={showSaveSessionDialog} onOpenChange={setShowSaveSessionDialog}>
+        <DialogContent className="bg-white text-black">
+          <DialogHeader>
+            <DialogTitle>Save Session</DialogTitle>
+            <DialogDescription>
+              Add a tag/label and select a type for this session. You can use the tag to search in Past Sessions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 mt-4">
+            <label className="font-medium">Session Tag/Label</label>
+            <input
+              type="text"
+              className="border rounded px-3 py-2"
+              value={sessionTag}
+              onChange={e => setSessionTag(e.target.value)}
+              placeholder="e.g. ProjectX, Math101, ClientA"
+            />
+            <label className="font-medium mt-2">Session Type</label>
+            <select
+              className="border rounded px-3 py-2"
+              value={sessionType}
+              onChange={e => setSessionType(e.target.value as 'lecture' | 'meeting' | 'interview' | 'other')}
+            >
+              <option value="lecture">Lecture</option>
+              <option value="meeting">Meeting</option>
+              <option value="interview">Interview</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveSessionDialog(false)}>Cancel</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSaveSessionWithTag} disabled={!sessionTag.trim()}>Save & Go to Past Sessions</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

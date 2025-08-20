@@ -68,11 +68,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       value: stats.totalSessions.toString(),
       icon: FileText,
     },
-    {
-      label: "Questions Detected", 
-      value: stats.questionsDetected.toString(),
-      icon: BarChart3,
-    },
+    // Removed Questions Detected stat
     {
       label: "Total Hours",
       value: `${stats.totalHours}h`,
@@ -241,19 +237,21 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         </Card>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {statsDisplay.map((stat, index) => (
-            <Card key={index} className="bg-[#1E293B] border-[#334155]">
-              <CardContent className="p-6 text-center">
-                <div className="mb-4">
-                  <p className="text-4xl font-bold text-[#6366F1] mb-2">
-                    {stat.value}
-                  </p>
-                  <p className="text-[#94A3B8] text-sm">{stat.label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="flex justify-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {statsDisplay.map((stat, index) => (
+              <Card key={index} className="bg-[#1E293B] border-[#334155]">
+                <CardContent className="p-6 text-center">
+                  <div className="mb-4">
+                    <p className="text-4xl font-bold text-[#6366F1] mb-2">
+                      {stat.value}
+                    </p>
+                    <p className="text-[#94A3B8] text-sm">{stat.label}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </main>
     </div>

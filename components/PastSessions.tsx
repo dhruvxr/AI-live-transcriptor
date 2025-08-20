@@ -46,6 +46,7 @@ interface Session {
   summary: string;
   questionsCount: number;
   wordsCount: number;
+  tag?: string;
 }
 
 export function PastSessions({ onNavigate }: PastSessionsProps) {
@@ -73,6 +74,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
           summary: session.summary || "No summary available",
           questionsCount: session.questionsCount,
           wordsCount: session.wordsCount,
+          tag: session.tags && session.tags.length > 0 ? session.tags[0] : undefined,
         }));
         setSessions(formattedSessions);
       } catch (error) {
@@ -101,6 +103,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
             summary: session.summary || "No summary available",
             questionsCount: session.questionsCount,
             wordsCount: session.wordsCount,
+            tag: session.tags && session.tags.length > 0 ? session.tags[0] : undefined,
           }));
           setSessions(formattedSessions);
         }
@@ -115,7 +118,8 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
     .filter((session) => {
       const matchesSearch =
         session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        session.summary.toLowerCase().includes(searchQuery.toLowerCase());
+        session.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (session.tag ? session.tag.toLowerCase().includes(searchQuery.toLowerCase()) : false);
       const matchesType = filterType === "all" || session.type === filterType;
       return matchesSearch && matchesType;
     })
@@ -337,6 +341,11 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
                   <div className="flex gap-6 text-sm text-[#94A3B8]">
                     <span>{session.questionsCount} questions</span>
                     <span>{session.wordsCount.toLocaleString()} words</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[#6366F1] font-semibold">
+                      {session.tag && `#${session.tag}`}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
