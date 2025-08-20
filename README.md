@@ -1,6 +1,6 @@
-# AI Live Transcriptor - Complete Implementation
+# Choom.AI - Complete Implementation
 
-A comprehensive real-time speech transcription application with AI-powered question detection, response generation, and advanced export/sharing capabilities.
+A comprehensive real-time speech transcription application with AI-powered features, built with React, TypeScript, and Azure Cognitive Services.
 
 ## ✅ Completed Features
 
@@ -124,7 +124,8 @@ Azure subscription (for AI services)
 ```bash
 # Clone repository
 git clone [repository-url]
-cd AI-live-transcriptor
+```bash
+cd Choom-AI
 
 # Install dependencies
 npm install
@@ -192,7 +193,7 @@ npm run dev
 
 ### Starting a Transcription Session
 
-1. Open the AI Live Transcriptor application
+1. Open the Choom.AI application
 2. Click "Start Session" or use the browser extension
 3. Allow microphone access when prompted
 4. Begin speaking - transcription appears in real-time
@@ -316,4 +317,4 @@ For support and questions:
 
 **Status**: ✅ **All 5 requested features are now fully implemented and functional**
 
-The AI Live Transcriptor now provides a complete solution for real-time speech transcription with advanced AI capabilities, comprehensive export options, and cross-platform browser extension support.
+The Choom.AI app now provides a complete solution for real-time speech transcription with advanced AI capabilities, comprehensive export options, and cross-platform browser extension support.

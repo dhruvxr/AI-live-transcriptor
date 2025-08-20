@@ -196,14 +196,14 @@ async function generateSimpleResponse(question) {
   const questionStart = question.toLowerCase().split(" ")[0];
   return (
     responses[questionStart] ||
-    "I understand this is a question. For detailed responses, please use the full AI Transcriptor app."
+    "I understand this is a question. For detailed responses, please use the full Choom.AI app."
   );
 }
 
 function createVisualIndicator() {
   // Create a small indicator that shows transcription status
   const indicator = document.createElement("div");
-  indicator.id = "ai-transcriptor-indicator";
+  indicator.id = "choom-ai-indicator";
   indicator.style.cssText = `
     position: fixed;
     top: 20px;
@@ -223,7 +223,7 @@ function createVisualIndicator() {
   `;
 
   indicator.innerHTML = "🎤";
-  indicator.title = "AI Transcriptor - Click to toggle";
+  indicator.title = "Choom.AI - Click to toggle";
 
   indicator.addEventListener("click", () => {
     if (isTranscribing) {
@@ -237,7 +237,7 @@ function createVisualIndicator() {
 }
 
 function updateVisualIndicator(active) {
-  const indicator = document.getElementById("ai-transcriptor-indicator");
+  const indicator = document.getElementById("choom-ai-indicator");
   if (!indicator) return;
 
   if (active) {
@@ -245,13 +245,13 @@ function updateVisualIndicator(active) {
       "linear-gradient(135deg, #10B981 0%, #059669 100%)";
     indicator.style.animation = "pulse 2s infinite";
     indicator.innerHTML = "🔴";
-    indicator.title = "AI Transcriptor - Recording (Click to stop)";
+    indicator.title = "Choom.AI - Recording (Click to stop)";
   } else {
     indicator.style.background =
       "linear-gradient(135deg, #4B5563 0%, #6D28D9 100%)";
     indicator.style.animation = "none";
     indicator.innerHTML = "🎤";
-    indicator.title = "AI Transcriptor - Ready (Click to start)";
+    indicator.title = "Choom.AI - Ready (Click to start)";
   }
 }
 

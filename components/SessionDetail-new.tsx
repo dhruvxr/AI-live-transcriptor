@@ -214,7 +214,7 @@ export function SessionDetail({ onNavigate, sessionId }: SessionDetailProps) {
           <div className="flex items-center">
             <img
               src="/src/assets/Logo.svg"
-              alt="AI Transcriptor"
+              alt="Choom.AI"
               className="h-16 w-auto"
             />
           </div>

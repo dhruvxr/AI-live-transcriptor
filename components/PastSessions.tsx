@@ -180,7 +180,7 @@ export function PastSessions({ onNavigate }: PastSessionsProps) {
           <div className="flex items-center cursor-pointer" onClick={() => onNavigate("dashboard")}>
             <img
               src="/src/assets/Logo.svg"
-              alt="AI Transcriptor"
+              alt="Choom.AI"
               className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
               title="Go to Home"
             />

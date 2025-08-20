@@ -1,6 +1,6 @@
-# 🚀 AI Live Transcriptor - Setup Guide
+# Choom.AI Setup Guide
 
-A comprehensive guide to get the AI Live Transcriptor app running in VS Code from scratch.
+A comprehensive guide to get the Choom.AI transcription app running in VS Code from scratch.
 
 ## 📋 Prerequisites
 
@@ -256,6 +256,6 @@ npm run preview
 
 ## 🎉 You're Ready!
 
-Once you've completed these steps, you'll have a fully functional AI Live Transcriptor app running in your VS Code environment. The app will automatically handle session management, provide real-time transcription, and offer AI-powered features when properly configured with Azure services.
+Once you've completed these steps, you'll have a fully functional Choom.AI app running in your VS Code environment. The app will automatically handle session management, provide real-time transcription, and offer AI-powered features when properly configured with Azure services.
 
 Happy transcribing! 🎤✨

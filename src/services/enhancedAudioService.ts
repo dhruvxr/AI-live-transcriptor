@@ -48,6 +48,7 @@ class EnhancedAudioService {
       if (options.captureMicrophone) {
         try {
           this.microphoneStream = await this.getMicrophoneStream();
+          console.log("✅ Microphone stream acquired successfully");
         } catch (micError) {
           console.error("Failed to get microphone:", micError);
           if (options.captureSystemAudio) {
@@ -62,12 +63,15 @@ class EnhancedAudioService {
       if (options.captureSystemAudio) {
         try {
           this.systemAudioStream = await this.getSystemAudioStream();
+          console.log("✅ System audio stream acquired successfully");
         } catch (systemError) {
           console.error("Failed to get system audio:", systemError);
           if (options.captureMicrophone && this.microphoneStream) {
-            console.log("Continuing with microphone only...");
+            console.log("⚠️ System audio failed, continuing with microphone only...");
             // Update options to reflect what we actually got
             this.captureOptions = { ...options, captureSystemAudio: false };
+            // Notify about the fallback
+            onError(`System audio capture failed: ${systemError}. Continuing with microphone only.`);
           } else {
             throw systemError; // Re-throw if we don't have any audio source
           }
@@ -250,6 +254,58 @@ class EnhancedAudioService {
     return destination.stream;
   }
 
+  private createAudioStreamFromMediaStream(mediaStream: MediaStream): any {
+    // For system audio with Azure Speech SDK, we need a different approach
+    // The SDK works better with direct audio device access
+    try {
+      console.log("🔄 Attempting to create Azure-compatible audio stream from MediaStream");
+      
+      // Note: Azure Speech SDK has limitations with custom MediaStreams
+      // For system audio, we'll use a workaround approach
+      
+      // Create a Web Audio API setup to process the audio
+      if (!this.audioContext) {
+        this.audioContext = new AudioContext();
+      }
+      
+      const source = this.audioContext.createMediaStreamSource(mediaStream);
+      const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      
+      // Convert to format compatible with Azure Speech SDK
+      const audioFormat = SpeechSDK.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
+      const pushAudioInputStream = SpeechSDK.AudioInputStream.createPushStream(audioFormat);
+      
+      processor.onaudioprocess = (event) => {
+        const inputBuffer = event.inputBuffer;
+        const channelData = inputBuffer.getChannelData(0);
+        
+        // Convert Float32Array to 16-bit PCM
+        const pcmData = new Int16Array(channelData.length);
+        for (let i = 0; i < channelData.length; i++) {
+          pcmData[i] = Math.max(-32768, Math.min(32767, channelData[i] * 32768));
+        }
+        
+        // Push data to Azure Speech SDK
+        const arrayBuffer = pcmData.buffer;
+        pushAudioInputStream.write(arrayBuffer);
+      };
+      
+      source.connect(processor);
+      // Don't connect to destination to avoid feedback
+      // processor.connect(this.audioContext.destination);
+      
+      console.log("✅ Created Azure-compatible audio stream with Web Audio API processing");
+      return pushAudioInputStream;
+      
+    } catch (error) {
+      console.error("Failed to create audio stream from MediaStream:", error);
+      // Fallback: return a basic stream format
+      return SpeechSDK.AudioInputStream.createPushStream(
+        SpeechSDK.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1)
+      );
+    }
+  }
+
   private async startAzureSpeechRecognition(
     onResult: (result: TranscriptionResult) => void,
     onError: (error: string) => void
@@ -268,19 +324,31 @@ class EnhancedAudioService {
 
       let audioConfig: any;
       
-      // If we have a combined stream, try to use it, otherwise fallback to default microphone
-      if (this.combinedStream && this.combinedStream.getAudioTracks().length > 0) {
-        try {
-          // For now, let's use the default microphone input as a fallback
-          // The Web Audio API mixing approach needs more complex implementation
-          console.log("🔄 Using fallback to default microphone for Azure Speech (mixed audio coming soon)");
-          audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
-        } catch (streamError) {
-          console.warn("Failed to use combined stream, falling back to default microphone:", streamError);
+      // Handle different audio configurations
+      if (this.captureOptions.captureSystemAudio && !this.captureOptions.captureMicrophone) {
+        // System audio only - this is challenging with Azure Speech SDK
+        // For now, we'll inform the user and fall back to default microphone
+        console.warn("⚠️ System audio only mode: Azure Speech SDK works best with microphone access");
+        console.log("� Recommendation: Use 'Both' mode for better system audio transcription");
+        
+        // Try to use system audio if available, otherwise fallback
+        if (this.systemAudioStream && this.systemAudioStream.getAudioTracks().length > 0) {
+          try {
+            // Attempt to use system audio stream
+            const audioStream = this.createAudioStreamFromMediaStream(this.systemAudioStream);
+            audioConfig = SpeechSDK.AudioConfig.fromStreamInput(audioStream);
+            console.log("✅ Using system audio stream for Azure Speech");
+          } catch (error) {
+            console.warn("System audio stream setup failed, using default microphone:", error);
+            audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+          }
+        } else {
+          console.log("🔄 No system audio stream available, using default microphone");
           audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
         }
       } else {
-        // Standard microphone input
+        // Microphone mode (with or without system audio)
+        console.log("🔄 Using default microphone input for Azure Speech");
         audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
       }
 
@@ -369,14 +437,88 @@ class EnhancedAudioService {
 
   pauseRecording(): void {
     if (this.recognizer && this.isRecording) {
-      this.recognizer.stopContinuousRecognitionAsync();
+      console.log("🟡 Pausing speech recognition...");
+      this.recognizer.stopContinuousRecognitionAsync(
+        () => {
+          console.log("✅ Speech recognition paused successfully");
+          this.isRecording = false;
+        },
+        (error: any) => {
+          console.error("❌ Failed to pause speech recognition:", error);
+          this.isRecording = false;
+        }
+      );
     }
   }
 
   resumeRecording(): void {
     if (this.recognizer && !this.isRecording) {
-      this.recognizer.startContinuousRecognitionAsync();
+      console.log("🟢 Resuming speech recognition...");
+      this.recognizer.startContinuousRecognitionAsync(
+        () => {
+          console.log("✅ Speech recognition resumed successfully");
+          this.isRecording = true;
+        },
+        (error: any) => {
+          console.error("❌ Failed to resume speech recognition:", error);
+          this.isRecording = false;
+        }
+      );
+    } else if (!this.recognizer) {
+      console.warn("⚠️ Cannot resume: recognizer not initialized");
     }
+  }
+
+  // Resume with callback support for better error handling
+  resumeRecordingWithCallback(
+    onResult: (result: TranscriptionResult) => void,
+    onError: (error: string) => void
+  ): void {
+    if (!this.recognizer) {
+      console.warn("⚠️ Cannot resume: recognizer not initialized");
+      onError("Cannot resume: speech recognizer not initialized");
+      return;
+    }
+
+    if (!this.isRecording) {
+      console.log("🟢 Resuming speech recognition with callback...");
+      this.recognizer.startContinuousRecognitionAsync(
+        () => {
+          console.log("✅ Speech recognition resumed successfully");
+          this.isRecording = true;
+        },
+        (error: any) => {
+          console.error("❌ Failed to resume speech recognition:", error);
+          this.isRecording = false;
+          onError(`Failed to resume speech recognition: ${error}`);
+        }
+      );
+    } else {
+      console.log("ℹ️ Speech recognition is already running");
+    }
+  }
+
+  // Add a method to check if streams are still valid after pause
+  checkStreamHealth(): boolean {
+    let isHealthy = true;
+    
+    if (this.captureOptions.captureMicrophone && this.microphoneStream) {
+      const micTracks = this.microphoneStream.getAudioTracks();
+      if (micTracks.length === 0 || micTracks[0].readyState !== 'live') {
+        console.warn("⚠️ Microphone stream is not healthy");
+        isHealthy = false;
+      }
+    }
+    
+    if (this.captureOptions.captureSystemAudio && this.systemAudioStream) {
+      const systemTracks = this.systemAudioStream.getAudioTracks();
+      if (systemTracks.length === 0 || systemTracks[0].readyState !== 'live') {
+        console.warn("⚠️ System audio stream is not healthy");
+        isHealthy = false;
+      }
+    }
+    
+    return isHealthy;
   }
 
   getIsRecording(): boolean {

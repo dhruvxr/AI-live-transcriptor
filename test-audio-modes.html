@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Mode Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #0F172A;
+            color: #F8FAFC;
+        }
+        .control-group {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            background-color: #1E293B;
+        }
+        button {
+            background-color: #6366F1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #5B5CF6;
+        }
+        button:disabled {
+            background-color: #64748B;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #0F172A;
+        }
+        .mode-buttons {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        .mode-btn {
+            padding: 8px 16px;
+            border: 1px solid #334155;
+            background-color: #1E293B;
+            color: #94A3B8;
+            font-size: 12px;
+        }
+        .mode-btn.active {
+            background-color: #6366F1;
+            color: white;
+        }
+        .mode-btn.speaker {
+            background-color: purple;
+        }
+        .mode-btn.both {
+            background-color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Audio Mode Switching Test</h1>
+    <p>This test simulates the audio mode switching functionality that has been added to the live transcription.</p>
+    
+    <div class="control-group">
+        <h3>Recording State</h3>
+        <button id="startBtn" onclick="startRecording()">Start Recording</button>
+        <button id="pauseBtn" onclick="pauseRecording()" disabled>Pause Recording</button>
+        <button id="resumeBtn" onclick="resumeRecording()" disabled>Resume Recording</button>
+        <button id="stopBtn" onclick="stopRecording()" disabled>Stop Recording</button>
+        <div class="status" id="status">Ready to start recording</div>
+    </div>
+    
+    <div class="control-group">
+        <h3>Audio Mode Controls</h3>
+        <p>Switch between different audio capture modes during recording:</p>
+        <div class="mode-buttons">
+            <button class="mode-btn active" id="micBtn" onclick="switchMode('microphone')">
+                🎤 Microphone
+            </button>
+            <button class="mode-btn" id="speakerBtn" onclick="switchMode('speaker')">
+                🔊 Speaker
+            </button>
+            <button class="mode-btn" id="bothBtn" onclick="switchMode('both')">
+                🎤🔊 Both
+            </button>
+        </div>
+        <div class="status" id="modeStatus">Current mode: Microphone Only</div>
+    </div>
+    
+    <div class="control-group">
+        <h3>Browser Support Information</h3>
+        <div id="browserInfo"></div>
+    </div>
+    
+    <div class="control-group">
+        <h3>Transcript Log</h3>
+        <div id="transcript" style="min-height: 200px; border: 1px solid #334155; padding: 10px; background-color: #0F172A;"></div>
+    </div>
+
+    <script>
+        let isRecording = false;
+        let currentMode = 'microphone';
+        let isPaused = false;
+        let streamHealth = true; // Simulate stream health
+
+        // Browser detection
+        function detectBrowser() {
+            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+            const isEdge = /Edg/.test(navigator.userAgent);
+            const isFirefox = /Firefox/.test(navigator.userAgent);
+            const hasGetDisplayMedia = navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia;
+
+            const browserInfo = document.getElementById('browserInfo');
+            browserInfo.innerHTML = `
+                <p><strong>Browser:</strong> ${isChrome ? 'Chrome' : isEdge ? 'Edge' : isFirefox ? 'Firefox' : 'Unknown'}</p>
+                <p><strong>System Audio Support:</strong> ${hasGetDisplayMedia && (isChrome || isEdge || isFirefox) ? '✅ Supported' : '❌ Not supported'}</p>
+                <p><strong>getDisplayMedia Available:</strong> ${hasGetDisplayMedia ? '✅ Yes' : '❌ No'}</p>
+            `;
+
+            // Disable speaker modes if not supported
+            if (!hasGetDisplayMedia || (!isChrome && !isEdge && !isFirefox)) {
+                document.getElementById('speakerBtn').disabled = true;
+                document.getElementById('bothBtn').disabled = true;
+            }
+        }
+
+        function startRecording() {
+            isRecording = true;
+            isPaused = false;
+            streamHealth = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('resumeBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            updateStatus('🔴 Recording active');
+            addToTranscript('System: Recording started');
+            updateModeButtons();
+        }
+
+        function pauseRecording() {
+            if (!isRecording || isPaused) return;
+            
+            isPaused = true;
+            // Simulate potential stream health issues during pause
+            if (currentMode !== 'microphone' && Math.random() < 0.3) {
+                streamHealth = false;
+                addToTranscript('System: ⚠️ Simulated stream health issue during pause');
+            }
+            
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('resumeBtn').disabled = false;
+            updateStatus('⏸️ Recording paused');
+            addToTranscript('System: ⏸️ Recording paused');
+            updateModeButtons();
+        }
+
+        function resumeRecording() {
+            if (!isRecording || !isPaused) return;
+            
+            if (!streamHealth && currentMode !== 'microphone') {
+                addToTranscript('System: 🔄 Stream health compromised, restarting...');
+                // Simulate restart
+                setTimeout(() => {
+                    streamHealth = true;
+                    isPaused = false;
+                    document.getElementById('pauseBtn').disabled = false;
+                    document.getElementById('resumeBtn').disabled = true;
+                    updateStatus('🔴 Recording active (restarted)');
+                    addToTranscript('System: ✅ Recording restarted successfully');
+                    updateModeButtons();
+                }, 1000);
+                return;
+            }
+            
+            isPaused = false;
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('resumeBtn').disabled = true;
+            updateStatus('🔴 Recording active');
+            addToTranscript('System: ▶️ Recording resumed');
+            updateModeButtons();
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            isPaused = false;
+            streamHealth = true;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('resumeBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = true;
+            updateStatus('⏹️ Recording stopped');
+            addToTranscript('System: Recording stopped');
+            updateModeButtons();
+        }
+
+        function switchMode(newMode) {
+            if (!isRecording || isPaused) {
+                addToTranscript('System: Cannot switch modes - recording not active');
+                return;
+            }
+
+            const oldMode = currentMode;
+            currentMode = newMode;
+            
+            // Simulate mode switching process
+            updateStatus('🔄 Switching audio mode...');
+            addToTranscript(`System: Switching from ${getModeDisplayName(oldMode)} to ${getModeDisplayName(newMode)}`);
+            
+            // Simulate potential issues with system audio mode switching
+            if (newMode !== 'microphone' && Math.random() < 0.2) {
+                setTimeout(() => {
+                    addToTranscript('System: ⚠️ Mode switch failed, reverting to microphone');
+                    currentMode = 'microphone';
+                    updateStatus('🔴 Recording active (microphone)');
+                    updateModeStatus();
+                    updateModeButtons();
+                }, 500);
+                return;
+            }
+            
+            setTimeout(() => {
+                updateStatus('🔴 Recording active');
+                addToTranscript(`System: ✅ Audio mode switched to: ${getModeDisplayName(newMode)}`);
+                updateModeStatus();
+                updateModeButtons();
+            }, 500);
+        }
+
+        function getModeDisplayName(mode) {
+            switch(mode) {
+                case 'microphone': return 'Microphone Only';
+                case 'speaker': return 'Speaker/System Audio Only';
+                case 'both': return 'Both Microphone and Speaker';
+                default: return mode;
+            }
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        function updateModeStatus() {
+            document.getElementById('modeStatus').textContent = `Current mode: ${getModeDisplayName(currentMode)}`;
+        }
+
+        function updateModeButtons() {
+            const buttons = ['micBtn', 'speakerBtn', 'bothBtn'];
+            const modes = ['microphone', 'speaker', 'both'];
+            
+            buttons.forEach((btnId, index) => {
+                const btn = document.getElementById(btnId);
+                btn.classList.remove('active', 'speaker', 'both');
+                
+                if (modes[index] === currentMode) {
+                    btn.classList.add('active');
+                    if (currentMode === 'speaker') btn.classList.add('speaker');
+                    if (currentMode === 'both') btn.classList.add('both');
+                }
+                
+                // Disable mode switching when not recording or when paused
+                btn.disabled = !isRecording || isPaused || (modes[index] !== 'microphone' && !navigator.mediaDevices?.getDisplayMedia);
+            });
+        }
+
+        function addToTranscript(message) {
+            const transcript = document.getElementById('transcript');
+            const timestamp = new Date().toLocaleTimeString();
+            transcript.innerHTML += `<div style="margin: 5px 0; padding: 5px; border-left: 3px solid #6366F1;">
+                <small style="color: #94A3B8;">[${timestamp}]</small> ${message}
+            </div>`;
+            transcript.scrollTop = transcript.scrollHeight;
+        }
+
+        // Initialize
+        detectBrowser();
+        updateModeButtons();
+        updateModeStatus();
+
+        // Test system audio permission (for demonstration)
+        async function testSystemAudio() {
+            if (!navigator.mediaDevices?.getDisplayMedia) {
+                addToTranscript('System: getDisplayMedia not supported in this browser');
+                return;
+            }
+
+            try {
+                addToTranscript('System: Testing system audio permission...');
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: false,
+                    audio: true
+                });
+                
+                if (stream.getAudioTracks().length > 0) {
+                    addToTranscript('System: ✅ System audio test successful!');
+                    stream.getTracks().forEach(track => track.stop());
+                } else {
+                    addToTranscript('System: ❌ No audio tracks in system audio stream');
+                }
+            } catch (error) {
+                addToTranscript(`System: ❌ System audio test failed: ${error.message}`);
+            }
+        }
+
+        // Add test system audio button
+        document.addEventListener('DOMContentLoaded', () => {
+            if (navigator.mediaDevices?.getDisplayMedia) {
+                const testBtn = document.createElement('button');
+                testBtn.textContent = 'Test System Audio Permission';
+                testBtn.onclick = testSystemAudio;
+                testBtn.style.backgroundColor = '#10B981';
+                document.querySelector('.control-group:nth-child(3)').appendChild(testBtn);
+            }
+        });
+    </script>
+</body>
+</html>

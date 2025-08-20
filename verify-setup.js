@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Quick setup verification script for AI Live Transcriptor
+ * Quick setup verification script for Choom.AI
  * Run with: node verify-setup.js
  */
 
@@ -12,7 +12,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-console.log("🚀 AI Live Transcriptor - Setup Verification\n");
+console.log("🚀 Choom.AI - Setup Verification\n");
 
 const checks = [];
 

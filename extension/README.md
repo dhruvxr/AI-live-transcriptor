@@ -1,4 +1,4 @@
-# AI Live Transcriptor - Browser Extension
+# Choom.AI - Browser Extension
 
 A Chrome/Firefox browser extension for real-time speech transcription with AI-powered question detection and response capabilities.
 
@@ -50,7 +50,7 @@ A Chrome/Firefox browser extension for real-time speech transcription with AI-po
 
 ### Accessing Saved Sessions
 
-- Saved sessions sync with the main AI Live Transcriptor app
+- Saved sessions sync with the main Choom.AI app
 - Click "Open Main App" in the extension popup to view all sessions
 - Sessions include timestamps, transcripts, and AI responses
 
@@ -83,7 +83,7 @@ A Chrome/Firefox browser extension for real-time speech transcription with AI-po
 
 ## Integration with Main App
 
-The extension works seamlessly with the main AI Live Transcriptor application:
+The extension works seamlessly with the main Choom.AI application:
 
 - **Session Sync**: All sessions are automatically synced
 - **Unified History**: View all transcriptions in one place
@@ -167,4 +167,4 @@ extension/
 
 ## License
 
-This extension is part of the AI Live Transcriptor project and follows the same licensing terms.
+This extension is part of the Choom.AI project and follows the same licensing terms.

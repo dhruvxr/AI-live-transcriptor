@@ -303,6 +303,60 @@ class AzureSpeechService {
     }
   }
 
+  public pauseRecording(): void {
+    if (this.recognizer && this.isRecording) {
+      console.log("🟡 Pausing Azure speech recognition...");
+      if (this.recognizer.stopContinuousRecognitionAsync) {
+        // Azure SDK recognizer
+        this.recognizer.stopContinuousRecognitionAsync(
+          () => {
+            console.log("✅ Azure speech recognition paused successfully");
+            this.isRecording = false;
+          },
+          (error: any) => {
+            console.error("❌ Failed to pause Azure speech recognition:", error);
+            this.isRecording = false;
+          }
+        );
+      } else if (this.recognizer.stop) {
+        // Web Speech API recognizer - doesn't support pause, only stop
+        this.recognizer.stop();
+        this.isRecording = false;
+        console.log("🟡 Web Speech API paused (stopped)");
+      }
+    }
+  }
+
+  public resumeRecording(
+    onResult: (result: TranscriptionResult) => void,
+    onError: (error: string) => void
+  ): void {
+    if (this.recognizer && !this.isRecording) {
+      console.log("🟢 Resuming Azure speech recognition...");
+      if (this.recognizer.startContinuousRecognitionAsync) {
+        // Azure SDK recognizer
+        this.recognizer.startContinuousRecognitionAsync(
+          () => {
+            console.log("✅ Azure speech recognition resumed successfully");
+            this.isRecording = true;
+          },
+          (error: any) => {
+            console.error("❌ Failed to resume Azure speech recognition:", error);
+            onError(`Failed to resume recording: ${error}`);
+            this.isRecording = false;
+          }
+        );
+      } else {
+        // Web Speech API recognizer - need to restart completely
+        console.log("🔄 Web Speech API resume requires restart");
+        this.startWebSpeechRecognition(onResult, onError);
+      }
+    } else if (!this.recognizer) {
+      console.warn("⚠️ Cannot resume: recognizer not initialized");
+      onError("Cannot resume: speech recognizer not initialized");
+    }
+  }
+
   public isCurrentlyRecording(): boolean {
     return this.isRecording;
   }

@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 // import logoUrl from "../src/assets/Logo.svg";
 import { azureSpeechService } from "../src/services/realAzureSpeechService";
-import { enhancedAudioService, AudioCaptureOptions } from "../src/services/enhancedAudioService";
+import {
+  enhancedAudioService,
+  AudioCaptureOptions,
+} from "../src/services/enhancedAudioService";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Card, CardContent } from "./ui/card";
@@ -17,6 +20,9 @@ import {
   HelpCircle,
   Send,
   Save,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   Dialog,
@@ -28,9 +34,7 @@ import {
 } from "./ui/dialog";
 import { Textarea } from "./ui/textarea";
 import { getAIResponseStream } from "../src/services/azureOpenAIService-fixed";
-import {
-  createSession,
-} from "../src/services/dataStorageService";
+import { createSession } from "../src/services/dataStorageService";
 import {
   downloadAsText,
   downloadAsPdf,
@@ -56,7 +60,7 @@ interface LiveTranscriptionProps {
 
 interface TranscriptItem {
   id: string;
-  type: "speech" | "question" | "answer";
+  type: "speech" | "question" | "answer" | "ai_request";
   speaker?: string;
   content: string;
   timestamp: Date;
@@ -64,6 +68,16 @@ interface TranscriptItem {
   isQuestion?: boolean;
   aiResponse?: string;
   questionConfidence?: number;
+  hasInlineChat?: boolean;
+  inlineChatMessages?: InlineChatMessage[];
+}
+
+interface InlineChatMessage {
+  id: string;
+  type: "user_question" | "ai_response";
+  content: string;
+  timestamp: Date;
+  isGenerating?: boolean;
 }
 
 export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
@@ -86,25 +100,31 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
     captureSystemAudio: false, // Default to false so users don't immediately hit system audio errors
   });
 
+  // Audio mode state for runtime switching
+  const [currentAudioMode, setCurrentAudioMode] = useState<'microphone' | 'speaker' | 'both'>('microphone');
+
   // Browser compatibility check for system audio
   const isSystemAudioSupported = () => {
-    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+    const isChrome =
+      /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
     const isEdge = /Edg/.test(navigator.userAgent);
     const isFirefox = /Firefox/.test(navigator.userAgent);
-    const hasGetDisplayMedia = navigator.mediaDevices && (navigator.mediaDevices as any).getDisplayMedia;
-    
+    const hasGetDisplayMedia =
+      navigator.mediaDevices && (navigator.mediaDevices as any).getDisplayMedia;
+
     return hasGetDisplayMedia && (isChrome || isEdge || isFirefox);
   };
 
   const getBrowserInfo = () => {
-    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+    const isChrome =
+      /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
     const isEdge = /Edg/.test(navigator.userAgent);
     const isFirefox = /Firefox/.test(navigator.userAgent);
-    
-    if (isChrome) return { name: 'Chrome', supportsSystemAudio: 'full' };
-    if (isEdge) return { name: 'Edge', supportsSystemAudio: 'full' };
-    if (isFirefox) return { name: 'Firefox', supportsSystemAudio: 'limited' };
-    return { name: 'Unknown', supportsSystemAudio: 'none' };
+
+    if (isChrome) return { name: "Chrome", supportsSystemAudio: "full" };
+    if (isEdge) return { name: "Edge", supportsSystemAudio: "full" };
+    if (isFirefox) return { name: "Firefox", supportsSystemAudio: "limited" };
+    return { name: "Unknown", supportsSystemAudio: "none" };
   };
 
   // Enhanced AI interaction state (preserved for future use)
@@ -119,6 +139,15 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
   const [isGeneratingClarification, setIsGeneratingClarification] =
     useState(false);
 
+  // Inline chat state
+  const [activeInlineChat, setActiveInlineChat] = useState<string | null>(null);
+  const [inlineChatInputs, setInlineChatInputs] = useState<{
+    [key: string]: string;
+  }>({});
+  const [generatingInlineChats, setGeneratingInlineChats] = useState<
+    Set<string>
+  >(new Set());
+
   // Quick question state (for asking about recent content)
   const [isQuickQuestionOpen, setIsQuickQuestionOpen] = useState(false);
   const [quickQuestion, setQuickQuestion] = useState("");
@@ -132,6 +161,47 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [transcript, currentSpeech]);
+
+  // Sync currentAudioMode with audioOptions
+  useEffect(() => {
+    if (audioOptions.captureMicrophone && audioOptions.captureSystemAudio) {
+      setCurrentAudioMode('both');
+    } else if (audioOptions.captureSystemAudio) {
+      setCurrentAudioMode('speaker');
+    } else {
+      setCurrentAudioMode('microphone');
+    }
+  }, [audioOptions]);
+
+  // Group transcript items by minute for the same speaker
+  const groupedTranscript = transcript.reduce(
+    (groups: TranscriptItem[][], item) => {
+      if (groups.length === 0) {
+        return [[item]];
+      }
+
+      const lastGroup = groups[groups.length - 1];
+      const lastItem = lastGroup[lastGroup.length - 1];
+
+      // Check if this item can be grouped with the last group
+      const shouldGroup =
+        item.type === "speech" &&
+        lastItem.type === "speech" &&
+        item.speaker === lastItem.speaker &&
+        item.timestamp.getHours() === lastItem.timestamp.getHours() &&
+        item.timestamp.getMinutes() === lastItem.timestamp.getMinutes(); // Same minute
+
+      if (shouldGroup) {
+        // Add to existing group
+        lastGroup.push(item);
+        return groups;
+      } else {
+        // Create new group
+        return [...groups, [item]];
+      }
+    },
+    []
+  );
 
   // Duration tracking effect - show current time during recording
   useEffect(() => {
@@ -163,6 +233,17 @@ export function LiveTranscription({ onNavigate }: LiveTranscriptionProps) {
   const handleClarificationRequest = async () => {
     if (!selectedTranscriptForClarification || !clarificationQuestion) return;
 
+    // Add the AI request to the transcript
+    const aiRequestItem: TranscriptItem = {
+      id: Date.now().toString(),
+      type: "ai_request",
+      speaker: "Me",
+      content: clarificationQuestion.trim(),
+      timestamp: new Date(),
+    };
+
+    setTranscript((prev) => [...prev, aiRequestItem]);
+
     setIsGeneratingClarification(true);
     setClarificationAnswer("");
 
@@ -173,76 +254,285 @@ Question: "${clarificationQuestion}"
 
 Please provide a helpful explanation or clarification.`;
 
-    getAIResponseStream(
-      prompt,
-      (chunk) => {
-        setClarificationAnswer((prev) => prev + chunk);
-      },
-      () => {
-        setIsGeneratingClarification(false);
-      },
-      (error) => {
-        console.error("Error generating clarification:", error);
-        setClarificationAnswer(
-          "Error generating clarification. Please check your Azure OpenAI configuration in Settings."
-        );
-        setIsGeneratingClarification(false);
-      }
-    );
-    //   (error) => {
-    //     console.error("Error getting AI clarification:", error);
-    //     setClarificationAnswer(
-    //       "Sorry, I encountered an error while generating the answer."
-    //     );
-    //     setIsGeneratingClarification(false);
-    //   }
-    // );
+    try {
+      let fullResponse = "";
+
+      await getAIResponseStream(
+        prompt,
+        (chunk) => {
+          fullResponse += chunk;
+          setClarificationAnswer(fullResponse);
+        },
+        () => {
+          // Add AI response to transcript when complete
+          const aiResponseItem: TranscriptItem = {
+            id: (Date.now() + 1).toString(),
+            type: "answer",
+            speaker: "GPT-4o",
+            content: fullResponse,
+            timestamp: new Date(),
+          };
+
+          setTranscript((prev) => [...prev, aiResponseItem]);
+          setIsGeneratingClarification(false);
+          setIsClarificationPanelOpen(false);
+          setClarificationQuestion("");
+          setClarificationAnswer("");
+        },
+        (error) => {
+          console.error("Error generating clarification:", error);
+          setClarificationAnswer(
+            "Error generating clarification. Please check your Azure OpenAI configuration in Settings."
+          );
+          setIsGeneratingClarification(false);
+        }
+      );
+    } catch (error) {
+      console.error("Error generating clarification:", error);
+      setClarificationAnswer(
+        "Error generating clarification. Please check your Azure OpenAI configuration in Settings."
+      );
+      setIsGeneratingClarification(false);
+    }
   };
 
   // Quick question handler (for asking about recent transcript)
   const handleQuickQuestion = async () => {
     if (!quickQuestion.trim()) return;
 
+    // Add the AI request to the transcript
+    const aiRequestItem: TranscriptItem = {
+      id: Date.now().toString(),
+      type: "ai_request",
+      speaker: "Me",
+      content: quickQuestion.trim(),
+      timestamp: new Date(),
+    };
+
+    setTranscript((prev) => [...prev, aiRequestItem]);
+
     setIsGeneratingQuickAnswer(true);
     setQuickAnswer("");
 
-    // Temporarily disabled - AI functionality needs to be fixed
-    setQuickAnswer(
-      "AI quick answers are temporarily disabled. Please try again later."
+    // Get the last few transcript items for context
+    const recentContext = transcript
+      .slice(-5) // Last 5 items
+      .map((item) => `${item.speaker}: ${item.content}`)
+      .join("\n");
+
+    const prompt = `Based on the following recent conversation transcript, please answer the user's question:
+
+Recent Context:
+${recentContext}
+
+Question: "${quickQuestion}"
+
+Please provide a helpful answer based on what was recently discussed.`;
+
+    try {
+      let fullResponse = "";
+
+      await getAIResponseStream(
+        prompt,
+        (chunk) => {
+          fullResponse += chunk;
+          setQuickAnswer(fullResponse);
+        },
+        () => {
+          // Add AI response to transcript when complete
+          const aiResponseItem: TranscriptItem = {
+            id: (Date.now() + 1).toString(),
+            type: "answer",
+            speaker: "GPT-4o",
+            content: fullResponse,
+            timestamp: new Date(),
+          };
+
+          setTranscript((prev) => [...prev, aiResponseItem]);
+          setIsGeneratingQuickAnswer(false);
+          setIsQuickQuestionOpen(false);
+          setQuickQuestion("");
+          setQuickAnswer("");
+        },
+        (error) => {
+          console.error("Error getting quick answer:", error);
+          setQuickAnswer(
+            "Sorry, I encountered an error while generating the answer."
+          );
+          setIsGeneratingQuickAnswer(false);
+        }
+      );
+    } catch (error) {
+      console.error("Error getting quick answer:", error);
+      setQuickAnswer(
+        "Sorry, I encountered an error while generating the answer."
+      );
+      setIsGeneratingQuickAnswer(false);
+    }
+  };
+
+  // Inline chat handlers
+  const handleTranscriptItemClick = (itemId: string) => {
+    setActiveInlineChat(activeInlineChat === itemId ? null : itemId);
+  };
+
+  const handleInlineChatSubmit = async (itemId: string) => {
+    const inputValue = inlineChatInputs[itemId]?.trim();
+    if (!inputValue) return;
+
+    const transcriptItem = transcript.find((item) => item.id === itemId);
+    if (!transcriptItem) return;
+
+    // Create user message
+    const userMessage: InlineChatMessage = {
+      id: Date.now().toString(),
+      type: "user_question",
+      content: inputValue,
+      timestamp: new Date(),
+    };
+
+    // Update transcript item with inline chat
+    setTranscript((prev) =>
+      prev.map((item) => {
+        if (item.id === itemId) {
+          return {
+            ...item,
+            hasInlineChat: true,
+            inlineChatMessages: [
+              ...(item.inlineChatMessages || []),
+              userMessage,
+            ],
+          };
+        }
+        return item;
+      })
     );
-    setIsGeneratingQuickAnswer(false);
 
-    // // Get the last few transcript items for context
-    // const recentContext = transcript
-    //   .slice(-5) // Last 5 items
-    //   .map((item) => `${item.speaker}: ${item.content}`)
-    //   .join("\n");
+    // Clear input and add to generating set
+    setInlineChatInputs((prev) => ({ ...prev, [itemId]: "" }));
+    setGeneratingInlineChats((prev) => new Set(prev).add(itemId));
 
-    // const prompt = `Based on the following recent conversation transcript, please answer the user's question:
+    const prompt = `Based on the following statement from the conversation, please answer the user's question:
 
-    // Recent Context:
-    // ${recentContext}
+Original Statement: "${transcriptItem.content}"
+Speaker: ${transcriptItem.speaker}
+Timestamp: ${transcriptItem.timestamp.toLocaleTimeString()}
 
-    // Question: "${quickQuestion}"
+User's Question: "${inputValue}"
 
-    // Please provide a helpful answer based on what was recently discussed.`;
+Please provide a helpful and relevant answer based on the context of what was said.`;
 
-    // getAIResponseStream(
-    //   prompt,
-    //   (chunk) => {
-    //     setQuickAnswer((prev) => prev + chunk);
-    //   },
-    //   () => {
-    //     setIsGeneratingQuickAnswer(false);
-    //   },
-    //   (error) => {
-    //     console.error("Error getting quick answer:", error);
-    //     setQuickAnswer(
-    //       "Sorry, I encountered an error while generating the answer."
-    //     );
-    //     setIsGeneratingQuickAnswer(false);
-    //   }
-    // );
+    try {
+      let fullResponse = "";
+
+      await getAIResponseStream(
+        prompt,
+        (chunk) => {
+          fullResponse += chunk;
+          // Update the generating message in real-time
+          setTranscript((prev) =>
+            prev.map((item) => {
+              if (item.id === itemId) {
+                const messages = item.inlineChatMessages || [];
+                const lastMessage = messages[messages.length - 1];
+
+                if (
+                  lastMessage &&
+                  lastMessage.type === "ai_response" &&
+                  lastMessage.isGenerating
+                ) {
+                  // Update existing generating message
+                  return {
+                    ...item,
+                    inlineChatMessages: [
+                      ...messages.slice(0, -1),
+                      { ...lastMessage, content: fullResponse },
+                    ],
+                  };
+                } else {
+                  // Add new generating message
+                  return {
+                    ...item,
+                    inlineChatMessages: [
+                      ...messages,
+                      {
+                        id: (Date.now() + 1).toString(),
+                        type: "ai_response",
+                        content: fullResponse,
+                        timestamp: new Date(),
+                        isGenerating: true,
+                      },
+                    ],
+                  };
+                }
+              }
+              return item;
+            })
+          );
+        },
+        () => {
+          // Finalize the response
+          setTranscript((prev) =>
+            prev.map((item) => {
+              if (item.id === itemId) {
+                const messages = item.inlineChatMessages || [];
+                return {
+                  ...item,
+                  inlineChatMessages: messages.map((msg) =>
+                    msg.isGenerating ? { ...msg, isGenerating: false } : msg
+                  ),
+                };
+              }
+              return item;
+            })
+          );
+
+          setGeneratingInlineChats((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(itemId);
+            return newSet;
+          });
+        },
+        (error) => {
+          console.error("Error generating inline chat response:", error);
+
+          // Add error message
+          setTranscript((prev) =>
+            prev.map((item) => {
+              if (item.id === itemId) {
+                return {
+                  ...item,
+                  inlineChatMessages: [
+                    ...(item.inlineChatMessages || []),
+                    {
+                      id: (Date.now() + 2).toString(),
+                      type: "ai_response",
+                      content:
+                        "Sorry, I encountered an error while generating the response.",
+                      timestamp: new Date(),
+                    },
+                  ],
+                };
+              }
+              return item;
+            })
+          );
+
+          setGeneratingInlineChats((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(itemId);
+            return newSet;
+          });
+        }
+      );
+    } catch (error) {
+      console.error("Error in inline chat:", error);
+      setGeneratingInlineChats((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    }
   };
 
   const handleTranscriptionUpdate = async (text: string, isFinal: boolean) => {
@@ -468,7 +758,7 @@ Please provide a helpful explanation or clarification.`;
 
   const startService = async () => {
     setError(null);
-    
+
     try {
       // Choose service based on audio capture options
       if (audioOptions.captureSystemAudio) {
@@ -477,8 +767,12 @@ Please provide a helpful explanation or clarification.`;
           audioOptions,
           (result) => {
             // Add source indicator to the transcript
-            const sourceLabel = result.source === 'mixed' ? '🎤🔊' : 
-                               result.source === 'system' ? '🔊' : '🎤';
+            const sourceLabel =
+              result.source === "mixed"
+                ? "🎤🔊"
+                : result.source === "system"
+                ? "🔊"
+                : "🎤";
             handleTranscriptionUpdate(`${sourceLabel} ${result.text}`, true);
           },
           handleTranscriptionError
@@ -516,7 +810,9 @@ Please provide a helpful explanation or clarification.`;
     );
 
     // No automatic session creation - user must manually save
-    console.log("Recording started. Use 'Save Transcript' when you want to save your session.");
+    console.log(
+      "Recording started. Use 'Save Transcript' when you want to save your session."
+    );
 
     await startService();
   };
@@ -528,17 +824,178 @@ Please provide a helpful explanation or clarification.`;
 
     setIsRecording(false);
     setSessionStartTime(null);
-    
-    console.log("Recording stopped. Use 'Save Transcript' to save your session.");
+
+    console.log(
+      "Recording stopped. Use 'Save Transcript' to save your session."
+    );
   };
 
   const togglePauseResume = async () => {
     const willPause = !isPaused;
     setIsPaused(willPause);
-    if (willPause) {
+    
+    try {
+      if (willPause) {
+        // Pause the recording
+        console.log("🟡 Pausing transcription...");
+        if (audioOptions.captureSystemAudio) {
+          enhancedAudioService.pauseRecording();
+        } else {
+          azureSpeechService.pauseRecording();
+        }
+        
+        // Add pause message to transcript
+        const pauseMessage: TranscriptItem = {
+          id: Date.now().toString(),
+          type: "speech",
+          speaker: "System",
+          content: "⏸️ Recording paused",
+          timestamp: new Date(),
+          confidence: 1.0,
+        };
+        setTranscript(prev => [...prev, pauseMessage]);
+        
+      } else {
+        // Resume the recording
+        console.log("🟢 Resuming transcription...");
+        
+        // Check if we're using enhanced audio service (system audio)
+        if (audioOptions.captureSystemAudio) {
+          // Check stream health before resuming
+          const isHealthy = enhancedAudioService.checkStreamHealth();
+          if (!isHealthy) {
+            console.warn("⚠️ Audio streams are not healthy, restarting service...");
+            // If streams are not healthy, restart the service
+            await stopService();
+            setTimeout(async () => {
+              try {
+                await startService();
+                const restartMessage: TranscriptItem = {
+                  id: Date.now().toString(),
+                  type: "speech",
+                  speaker: "System",
+                  content: "🔄 Recording restarted (audio streams recovered)",
+                  timestamp: new Date(),
+                  confidence: 1.0,
+                };
+                setTranscript(prev => [...prev, restartMessage]);
+              } catch (error) {
+                setError(`Failed to restart recording after pause: ${error}`);
+                setIsPaused(true);
+              }
+            }, 100);
+            return;
+          } else {
+            enhancedAudioService.resumeRecordingWithCallback(
+              (result) => {
+                handleTranscriptionUpdate(result.text, true);
+              },
+              (error) => {
+                console.error("Failed to resume enhanced recording:", error);
+                setError(`Failed to resume recording: ${error}`);
+                setIsPaused(true);
+              }
+            );
+          }
+        } else {
+          azureSpeechService.resumeRecording(
+            (result) => {
+              handleTranscriptionUpdate(result.text, true);
+            },
+            (error) => {
+              console.error("Failed to resume recording:", error);
+              setError(`Failed to resume recording: ${error}`);
+              setIsPaused(true); // Revert to paused state on error
+            }
+          );
+        }
+        
+        // Add resume message to transcript (only if not restarting)
+        if (audioOptions.captureSystemAudio && enhancedAudioService.checkStreamHealth()) {
+          const resumeMessage: TranscriptItem = {
+            id: Date.now().toString(),
+            type: "speech",
+            speaker: "System", 
+            content: "▶️ Recording resumed",
+            timestamp: new Date(),
+            confidence: 1.0,
+          };
+          setTranscript(prev => [...prev, resumeMessage]);
+        } else if (!audioOptions.captureSystemAudio) {
+          const resumeMessage: TranscriptItem = {
+            id: Date.now().toString(),
+            type: "speech",
+            speaker: "System", 
+            content: "▶️ Recording resumed",
+            timestamp: new Date(),
+            confidence: 1.0,
+          };
+          setTranscript(prev => [...prev, resumeMessage]);
+        }
+      }
+    } catch (error) {
+      console.error("Error during pause/resume:", error);
+      setError(`Failed to ${willPause ? 'pause' : 'resume'} recording: ${error}`);
+      // Revert state on error
+      setIsPaused(!willPause);
+    }
+  };
+
+  // Function to switch audio modes during recording
+  const switchAudioMode = async (newMode: 'microphone' | 'speaker' | 'both') => {
+    if (!isRecording) return;
+
+    try {
+      // Update the current audio mode
+      setCurrentAudioMode(newMode);
+      
+      // Update audio options based on the new mode
+      const newAudioOptions: AudioCaptureOptions = {
+        captureMicrophone: newMode === 'microphone' || newMode === 'both',
+        captureSystemAudio: newMode === 'speaker' || newMode === 'both',
+      };
+      
+      setAudioOptions(newAudioOptions);
+      
+      // Restart the audio service with new options
       await stopService();
-    } else {
-      await startService();
+      
+      // Small delay to ensure cleanup
+      setTimeout(async () => {
+        try {
+          await startService();
+          
+          // Add a system message to the transcript indicating the mode change
+          const modeChangeMessage: TranscriptItem = {
+            id: Date.now().toString(),
+            type: "speech",
+            speaker: "System",
+            content: `🔄 Audio mode switched to: ${
+              newMode === 'microphone' ? 'Microphone Only' :
+              newMode === 'speaker' ? 'Speaker/System Audio Only' :
+              'Both Microphone and Speaker'
+            }${newMode === 'speaker' ? ' (Note: Azure Speech works best with microphone access for better accuracy)' : ''}`,
+            timestamp: new Date(),
+            confidence: 1.0,
+          };
+          
+          setTranscript(prev => [...prev, modeChangeMessage]);
+          
+        } catch (error) {
+          setError(`Failed to restart with new audio mode: ${error}`);
+          console.error("Audio mode switch error:", error);
+          
+          // Revert to previous mode on error
+          setCurrentAudioMode(
+            audioOptions.captureMicrophone && audioOptions.captureSystemAudio ? 'both' :
+            audioOptions.captureSystemAudio ? 'speaker' : 'microphone'
+          );
+        }
+      }, 500);
+      
+    } catch (error) {
+      setError(`Failed to switch audio mode: ${error}`);
+      console.error("Audio mode switch error:", error);
     }
   };
 
@@ -636,6 +1093,8 @@ Please provide a helpful explanation or clarification.`;
             ? ("ai_response" as const)
             : item.type === "question"
             ? ("question" as const)
+            : item.type === "ai_request"
+            ? ("ai_response" as const) // Map ai_request to ai_response for storage
             : ("speech" as const),
         content: item.content,
         timestamp: item.timestamp.toISOString(),
@@ -690,8 +1149,9 @@ Please provide a helpful explanation or clarification.`;
   };
 
   if (error) {
-    const isSystemAudioError = error.includes("System audio") || error.includes("getDisplayMedia");
-    
+    const isSystemAudioError =
+      error.includes("System audio") || error.includes("getDisplayMedia");
+
     return (
       <div className="min-h-screen bg-[#0F172A]">
         {/* Header - Bubble Style */}
@@ -699,26 +1159,29 @@ Please provide a helpful explanation or clarification.`;
           {/* Glow effect underneath */}
           <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/20 via-blue-400/10 to-transparent blur-xl -z-10"></div>
           <header className="flex items-center justify-between px-8 py-6 mx-6 mt-0 bg-gradient-to-br from-[#1E293B]/90 via-[#334155]/80 to-[#475569]/70 backdrop-blur-xl border border-[#475569]/50 rounded-b-3xl shadow-2xl shadow-blue-500/20 sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onNavigate("dashboard")}
-              className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-            <div className="flex items-center cursor-pointer" onClick={() => onNavigate("dashboard")}>
-              <img
-                src="/src/assets/Logo.svg"
-                alt="AI Transcriptor"
-                className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
-                title="Go to Home"
-              />
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onNavigate("dashboard")}
+                className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <div
+                className="flex items-center cursor-pointer"
+                onClick={() => onNavigate("dashboard")}
+              >
+                <img
+                  src="/src/assets/Logo.svg"
+                  alt="Choom.AI"
+                  className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
+                  title="Go to Home"
+                />
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
         </div>
 
         {/* Error Content */}
@@ -728,18 +1191,25 @@ Please provide a helpful explanation or clarification.`;
               <div className="w-16 h-16 mx-auto mb-6 bg-red-500/20 rounded-full flex items-center justify-center">
                 <span className="text-3xl">⚠️</span>
               </div>
-              
+
               <h1 className="text-2xl font-bold text-red-400 mb-4">
-                {isSystemAudioError ? "System Audio Error" : "Transcription Error"}
+                {isSystemAudioError
+                  ? "System Audio Error"
+                  : "Transcription Error"}
               </h1>
               <p className="text-md text-[#94A3B8] mb-6">{error}</p>
-              
+
               {isSystemAudioError ? (
                 <div className="text-sm text-[#94A3B8] mb-6 space-y-3">
-                  <p className="font-semibold text-[#F8FAFC]">To use system audio capture:</p>
+                  <p className="font-semibold text-[#F8FAFC]">
+                    To use system audio capture:
+                  </p>
                   <ul className="text-left space-y-1 bg-[#0F172A] p-3 rounded border border-[#334155]">
                     <li>• Use Chrome or Edge browser</li>
-                    <li>• When prompted, select "Share tab audio" or "Share system audio"</li>
+                    <li>
+                      • When prompted, select "Share tab audio" or "Share system
+                      audio"
+                    </li>
                     <li>• Make sure audio is enabled in the sharing dialog</li>
                     <li>• Try microphone-only mode as an alternative</li>
                   </ul>
@@ -749,7 +1219,7 @@ Please provide a helpful explanation or clarification.`;
                   Please check your speech service configuration.
                 </p>
               )}
-              
+
               <div className="flex justify-center gap-3">
                 <Button
                   onClick={() => {
@@ -757,14 +1227,17 @@ Please provide a helpful explanation or clarification.`;
                     setIsRecording(false);
                     // If it was a system audio error, disable system audio for next attempt
                     if (isSystemAudioError) {
-                      setAudioOptions(prev => ({ ...prev, captureSystemAudio: false }));
+                      setAudioOptions((prev) => ({
+                        ...prev,
+                        captureSystemAudio: false,
+                      }));
                     }
                   }}
                   className="bg-[#6366F1] hover:bg-[#5B5CF6] text-white"
                 >
                   {isSystemAudioError ? "Try Microphone Only" : "Try Again"}
                 </Button>
-                
+
                 <Button
                   onClick={() => onNavigate("dashboard")}
                   variant="outline"
@@ -788,26 +1261,29 @@ Please provide a helpful explanation or clarification.`;
           {/* Glow effect underneath */}
           <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/20 via-blue-400/10 to-transparent blur-xl -z-10"></div>
           <header className="flex items-center justify-between px-8 py-6 mx-6 mt-0 bg-gradient-to-br from-[#1E293B]/90 via-[#334155]/80 to-[#475569]/70 backdrop-blur-xl border border-[#475569]/50 rounded-b-3xl shadow-2xl shadow-blue-500/20 sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onNavigate("dashboard")}
-              className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-            <div className="flex items-center cursor-pointer" onClick={() => onNavigate("dashboard")}>
-              <img
-                src="/src/assets/Logo.svg"
-                alt="AI Transcriptor"
-                className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
-                title="Go to Home"
-              />
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onNavigate("dashboard")}
+                className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <div
+                className="flex items-center cursor-pointer"
+                onClick={() => onNavigate("dashboard")}
+              >
+                <img
+                  src="/src/assets/Logo.svg"
+                  alt="Choom.AI"
+                  className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
+                  title="Go to Home"
+                />
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
         </div>
 
         {/* Main Content */}
@@ -817,23 +1293,41 @@ Please provide a helpful explanation or clarification.`;
             {/* Enhanced Microphone Icon with Animation */}
             <div className="relative w-40 h-40 mx-auto mb-8">
               {/* Outer glow ring */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#6366F1]/30 via-[#5B5CF6]/20 to-[#4F46E5]/10 rounded-full animate-pulse" style={{animationDuration: '3s'}}></div>
+              <div
+                className="absolute inset-0 bg-gradient-to-br from-[#6366F1]/30 via-[#5B5CF6]/20 to-[#4F46E5]/10 rounded-full animate-pulse"
+                style={{ animationDuration: "3s" }}
+              ></div>
               {/* Middle ring */}
-              <div className="absolute inset-2 bg-gradient-to-br from-[#6366F1]/40 via-[#5B5CF6]/30 to-[#4F46E5]/20 rounded-full animate-pulse" style={{animationDelay: '0.5s', animationDuration: '3s'}}></div>
+              <div
+                className="absolute inset-2 bg-gradient-to-br from-[#6366F1]/40 via-[#5B5CF6]/30 to-[#4F46E5]/20 rounded-full animate-pulse"
+                style={{ animationDelay: "0.5s", animationDuration: "3s" }}
+              ></div>
               {/* Inner circle */}
-              <div className="absolute inset-4 bg-gradient-to-br from-[#6366F1] via-[#5B5CF6] to-[#4F46E5] rounded-full flex items-center justify-center shadow-2xl animate-pulse" style={{animationDelay: '1s', animationDuration: '3s'}}>
+              <div
+                className="absolute inset-4 bg-gradient-to-br from-[#6366F1] via-[#5B5CF6] to-[#4F46E5] rounded-full flex items-center justify-center shadow-2xl animate-pulse"
+                style={{ animationDelay: "1s", animationDuration: "3s" }}
+              >
                 <Mic className="w-20 h-20 text-white drop-shadow-lg" />
               </div>
               {/* Decorative dots - blue themed */}
-              <div className="absolute -top-2 -right-2 w-4 h-4 bg-[#3B82F6] rounded-full animate-ping" style={{animationDuration: '2s'}}></div>
-              <div className="absolute -bottom-2 -left-2 w-3 h-3 bg-[#1D4ED8] rounded-full animate-ping" style={{animationDelay: '1s', animationDuration: '2s'}}></div>
-              <div className="absolute top-1/2 -right-3 w-2 h-2 bg-[#60A5FA] rounded-full animate-ping" style={{animationDelay: '1.5s', animationDuration: '2s'}}></div>
+              <div
+                className="absolute -top-2 -right-2 w-4 h-4 bg-[#3B82F6] rounded-full animate-ping"
+                style={{ animationDuration: "2s" }}
+              ></div>
+              <div
+                className="absolute -bottom-2 -left-2 w-3 h-3 bg-[#1D4ED8] rounded-full animate-ping"
+                style={{ animationDelay: "1s", animationDuration: "2s" }}
+              ></div>
+              <div
+                className="absolute top-1/2 -right-3 w-2 h-2 bg-[#60A5FA] rounded-full animate-ping"
+                style={{ animationDelay: "1.5s", animationDuration: "2s" }}
+              ></div>
             </div>
-            
+
             <h2 className="text-4xl font-bold text-[#F8FAFC] mb-4">
               Ready to Transcribe
             </h2>
-            
+
             <p className="text-lg text-[#94A3B8] mb-12 max-w-2xl mx-auto">
               Press the button to start your live transcription session.
             </p>
@@ -842,7 +1336,9 @@ Please provide a helpful explanation or clarification.`;
             <div className="max-w-md mx-auto mb-8">
               <Card className="bg-[#1E293B] border-[#334155]">
                 <CardContent className="p-6">
-                  <h3 className="text-[#F8FAFC] font-semibold mb-4 text-center">Audio Sources</h3>
+                  <h3 className="text-[#F8FAFC] font-semibold mb-4 text-center">
+                    Audio Sources
+                  </h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-3 bg-[#0F172A] rounded-lg border border-[#334155]">
                       <div className="flex items-center gap-3">
@@ -852,18 +1348,24 @@ Please provide a helpful explanation or clarification.`;
                       <Switch
                         checked={audioOptions.captureMicrophone}
                         onCheckedChange={(checked) =>
-                          setAudioOptions(prev => ({ ...prev, captureMicrophone: checked }))
+                          setAudioOptions((prev) => ({
+                            ...prev,
+                            captureMicrophone: checked,
+                          }))
                         }
                       />
                     </div>
-                    
+
                     <div className="flex items-center justify-between p-3 bg-[#0F172A] rounded-lg border border-[#334155]">
                       <div className="flex items-center gap-3">
                         <span className="text-[#6366F1] text-xl">🔊</span>
                         <div className="flex items-center gap-2">
                           <span className="text-[#F8FAFC]">System Audio</span>
                           {!isSystemAudioSupported() && (
-                            <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-yellow-500 text-yellow-400"
+                            >
                               Not supported
                             </Badge>
                           )}
@@ -874,77 +1376,120 @@ Please provide a helpful explanation or clarification.`;
                           checked={audioOptions.captureSystemAudio}
                           disabled={!isSystemAudioSupported()}
                           onCheckedChange={(checked) =>
-                            setAudioOptions(prev => ({ ...prev, captureSystemAudio: checked }))
+                            setAudioOptions((prev) => ({
+                              ...prev,
+                              captureSystemAudio: checked,
+                            }))
                           }
                         />
-                        {audioOptions.captureSystemAudio && isSystemAudioSupported() && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const stream = await (navigator.mediaDevices as any).getDisplayMedia({
-                                  video: false,
-                                  audio: true
-                                });
-                                stream.getTracks().forEach((track: any) => track.stop());
-                                alert("✅ System audio test successful! You can now start recording with system audio.");
-                              } catch (error) {
-                                alert(`❌ System audio test failed: ${error}. Please use microphone-only mode.`);
-                                setAudioOptions(prev => ({ ...prev, captureSystemAudio: false }));
-                              }
-                            }}
-                            className="text-xs px-2 py-1 h-6 border-[#6366F1] text-[#6366F1] hover:bg-[#6366F1]/20"
-                          >
-                            Test
-                          </Button>
-                        )}
+                        {audioOptions.captureSystemAudio &&
+                          isSystemAudioSupported() && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const stream = await (
+                                    navigator.mediaDevices as any
+                                  ).getDisplayMedia({
+                                    video: false,
+                                    audio: true,
+                                  });
+                                  stream
+                                    .getTracks()
+                                    .forEach((track: any) => track.stop());
+                                  alert(
+                                    "✅ System audio test successful! You can now start recording with system audio."
+                                  );
+                                } catch (error) {
+                                  alert(
+                                    `❌ System audio test failed: ${error}. Please use microphone-only mode.`
+                                  );
+                                  setAudioOptions((prev) => ({
+                                    ...prev,
+                                    captureSystemAudio: false,
+                                  }));
+                                }
+                              }}
+                              className="text-xs px-2 py-1 h-6 border-[#6366F1] text-[#6366F1] hover:bg-[#6366F1]/20"
+                            >
+                              Test
+                            </Button>
+                          )}
                       </div>
                     </div>
                   </div>
 
                   {/* Audio Source Information */}
-                  {audioOptions.captureSystemAudio && isSystemAudioSupported() && (
-                    <div className="mt-4 p-3 bg-[#0F172A]/50 rounded-lg border border-[#6366F1]/20">
-                      <div className="text-xs text-[#94A3B8] space-y-2">
-                        <p className="text-[#F8FAFC] font-medium">⚠️ System audio capture requires:</p>
-                        {(() => {
-                          const browserInfo = getBrowserInfo();
-                          if (browserInfo.name === 'Firefox') {
-                            return (
-                              <ul className="text-left space-y-1 ml-4">
-                                <li>• Click "Allow" when prompted for screen sharing</li>
-                                <li>• Select your screen or application window</li>
-                                <li>• <strong>Check "Share system audio"</strong> in the dialog</li>
-                                <li>• Have audio playing (music, videos, etc.)</li>
-                                <li>• Note: Firefox may require video sharing enabled</li>
-                              </ul>
-                            );
-                          } else {
-                            return (
-                              <ul className="text-left space-y-1 ml-4">
-                                <li>• Click "Share your screen" when prompted</li>
-                                <li>• Select "Share tab audio" or "Share system audio"</li>
-                                <li>• Enable audio in the sharing dialog</li>
-                                <li>• Have audio playing (music, videos, etc.)</li>
-                              </ul>
-                            );
-                          }
-                        })()}
-                        <p className="text-[#6366F1] font-medium">
-                          💡 Use the "Test" button to check compatibility with {getBrowserInfo().name}.
+                  {audioOptions.captureSystemAudio &&
+                    isSystemAudioSupported() && (
+                      <div className="mt-4 p-3 bg-[#0F172A]/50 rounded-lg border border-[#6366F1]/20">
+                        <div className="text-xs text-[#94A3B8] space-y-2">
+                          <p className="text-[#F8FAFC] font-medium">
+                            ⚠️ System audio capture requires:
+                          </p>
+                          {(() => {
+                            const browserInfo = getBrowserInfo();
+                            if (browserInfo.name === "Firefox") {
+                              return (
+                                <ul className="text-left space-y-1 ml-4">
+                                  <li>
+                                    • Click "Allow" when prompted for screen
+                                    sharing
+                                  </li>
+                                  <li>
+                                    • Select your screen or application window
+                                  </li>
+                                  <li>
+                                    •{" "}
+                                    <strong>Check "Share system audio"</strong>{" "}
+                                    in the dialog
+                                  </li>
+                                  <li>
+                                    • Have audio playing (music, videos, etc.)
+                                  </li>
+                                  <li>
+                                    • Note: Firefox may require video sharing
+                                    enabled
+                                  </li>
+                                </ul>
+                              );
+                            } else {
+                              return (
+                                <ul className="text-left space-y-1 ml-4">
+                                  <li>
+                                    • Click "Share your screen" when prompted
+                                  </li>
+                                  <li>
+                                    • Select "Share tab audio" or "Share system
+                                    audio"
+                                  </li>
+                                  <li>• Enable audio in the sharing dialog</li>
+                                  <li>
+                                    • Have audio playing (music, videos, etc.)
+                                  </li>
+                                </ul>
+                              );
+                            }
+                          })()}
+                          <p className="text-[#6366F1] font-medium">
+                            💡 Use the "Test" button to check compatibility with{" "}
+                            {getBrowserInfo().name}.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                  {audioOptions.captureSystemAudio &&
+                    !isSystemAudioSupported() && (
+                      <div className="mt-4 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                        <p className="text-xs text-yellow-400">
+                          System audio is not supported in your current browser.
+                          Please use Chrome (74+), Edge (79+), or Firefox (66+)
+                          for system audio capture.
                         </p>
                       </div>
-                    </div>
-                  )}
-
-                  {audioOptions.captureSystemAudio && !isSystemAudioSupported() && (
-                    <div className="mt-4 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-                      <p className="text-xs text-yellow-400">
-                        System audio is not supported in your current browser. Please use Chrome (74+), Edge (79+), or Firefox (66+) for system audio capture.
-                      </p>
-                    </div>
-                  )}
+                    )}
                 </CardContent>
               </Card>
             </div>
@@ -955,17 +1500,21 @@ Please provide a helpful explanation or clarification.`;
                 onClick={handleStartSession}
                 size="lg"
                 className="bg-[#10B981] hover:bg-[#059669] text-white px-8 py-3 text-lg"
-                disabled={!audioOptions.captureMicrophone && !audioOptions.captureSystemAudio}
+                disabled={
+                  !audioOptions.captureMicrophone &&
+                  !audioOptions.captureSystemAudio
+                }
               >
                 <Mic className="w-6 h-6 mr-3" />
                 Start Session
               </Button>
-              
-              {!audioOptions.captureMicrophone && !audioOptions.captureSystemAudio && (
-                <p className="text-sm text-red-400">
-                  Please select at least one audio source
-                </p>
-              )}
+
+              {!audioOptions.captureMicrophone &&
+                !audioOptions.captureSystemAudio && (
+                  <p className="text-sm text-red-400">
+                    Please select at least one audio source
+                  </p>
+                )}
 
               <Button
                 onClick={handleSaveTranscript}
@@ -991,84 +1540,153 @@ Please provide a helpful explanation or clarification.`;
         {/* Glow effect underneath */}
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/20 via-blue-400/10 to-transparent blur-xl -z-10"></div>
         <header className="flex items-center justify-between px-8 py-6 mx-6 mt-0 bg-gradient-to-br from-[#1E293B]/90 via-[#334155]/80 to-[#475569]/70 backdrop-blur-xl border border-[#475569]/50 rounded-b-3xl shadow-2xl shadow-blue-500/20 sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onNavigate("dashboard")}
-            className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
-          <div className="flex items-center cursor-pointer" onClick={() => onNavigate("dashboard")}>
-            <img
-              src="/src/assets/Logo.svg"
-              alt="AI Transcriptor"
-              className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
-              title="Go to Home"
-            />
-          </div>
-          <Badge className={isPaused ? "bg-yellow-500 text-white" : "bg-green-500 text-white"}>
-            <div className={`w-2 h-2 bg-white rounded-full mr-2 ${isPaused ? '' : 'animate-pulse'}`}></div>
-            {isPaused ? 'Paused' : 'Live'}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onNavigate("dashboard")}
+              className="text-[#F8FAFC] hover:text-[#F8FAFC] hover:bg-[#334155]"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
+            <div
+              className="flex items-center cursor-pointer"
+              onClick={() => onNavigate("dashboard")}
+            >
+              <img
+                src="/src/assets/Logo.svg"
+                alt="Choom.AI"
+                className="h-16 w-auto hover:opacity-80 transition-opacity duration-200"
+                title="Go to Home"
+              />
+            </div>
+            <Badge
+              className={
+                isPaused
+                  ? "bg-yellow-500 text-white"
+                  : "bg-green-500 text-white"
+              }
+            >
+              <div
+                className={`w-2 h-2 bg-white rounded-full mr-2 ${
+                  isPaused ? "" : "animate-pulse"
+                }`}
+              ></div>
+              {isPaused ? "Paused" : "Live"}
+            </Badge>
 
-          {/* Audio Source Indicators */}
-          <div className="flex items-center gap-1">
-            {audioOptions.captureMicrophone && (
-              <Badge variant="outline" className="bg-[#6366F1]/20 border-[#6366F1] text-[#6366F1]">
+            {/* Audio Source Indicators */}
+            <div className="flex items-center gap-1">
+              {audioOptions.captureMicrophone && (
+                <Badge
+                  variant="outline"
+                  className="bg-[#6366F1]/20 border-[#6366F1] text-[#6366F1]"
+                >
+                  <Mic className="w-3 h-3 mr-1" />
+                  Mic
+                </Badge>
+              )}
+              {audioOptions.captureSystemAudio && (
+                <Badge
+                  variant="outline"
+                  className="bg-purple-500/20 border-purple-500 text-purple-300"
+                >
+                  <span className="text-xs mr-1">🔊</span>
+                  System
+                </Badge>
+              )}
+            </div>
+
+            {/* Audio Mode Switcher */}
+            <div className="flex items-center gap-1 bg-[#1E293B]/50 rounded-lg p-1 border border-[#334155]">
+              <Button
+                size="sm"
+                variant={currentAudioMode === 'microphone' ? 'default' : 'ghost'}
+                onClick={() => switchAudioMode('microphone')}
+                className={`h-7 px-2 text-xs ${
+                  currentAudioMode === 'microphone' 
+                    ? 'bg-[#6366F1] text-white hover:bg-[#5B5EF0]' 
+                    : 'text-[#94A3B8] hover:text-white hover:bg-[#334155]'
+                }`}
+                disabled={isPaused}
+                title="Switch to microphone only"
+              >
                 <Mic className="w-3 h-3 mr-1" />
                 Mic
-              </Badge>
-            )}
-            {audioOptions.captureSystemAudio && (
-              <Badge variant="outline" className="bg-purple-500/20 border-purple-500 text-purple-300">
+              </Button>
+              <Button
+                size="sm"
+                variant={currentAudioMode === 'speaker' ? 'default' : 'ghost'}
+                onClick={() => switchAudioMode('speaker')}
+                className={`h-7 px-2 text-xs ${
+                  currentAudioMode === 'speaker' 
+                    ? 'bg-purple-500 text-white hover:bg-purple-600' 
+                    : 'text-[#94A3B8] hover:text-white hover:bg-[#334155]'
+                }`}
+                disabled={isPaused || !isSystemAudioSupported()}
+                title={isSystemAudioSupported() ? "Switch to speaker/system audio only (Note: May have limited accuracy compared to microphone)" : "System audio not supported in this browser"}
+              >
                 <span className="text-xs mr-1">🔊</span>
-                System
-              </Badge>
-            )}
+                Speaker
+              </Button>
+              <Button
+                size="sm"
+                variant={currentAudioMode === 'both' ? 'default' : 'ghost'}
+                onClick={() => switchAudioMode('both')}
+                className={`h-7 px-2 text-xs ${
+                  currentAudioMode === 'both' 
+                    ? 'bg-green-500 text-white hover:bg-green-600' 
+                    : 'text-[#94A3B8] hover:text-white hover:bg-[#334155]'
+                }`}
+                disabled={isPaused || !isSystemAudioSupported()}
+                title={isSystemAudioSupported() ? "Use both microphone and speaker audio" : "System audio not supported in this browser"}
+              >
+                <span className="text-xs mr-1">🎤🔊</span>
+                Both
+              </Button>
+            </div>
+
+            {/* Recording Time */}
+            <div className="flex items-center gap-2 px-3 py-1 bg-[#1E293B] rounded-md">
+              <Clock className="w-4 h-4 text-[#94A3B8]" />
+              <span className="text-white font-mono text-sm">
+                {currentRecordingTime}
+              </span>
+            </div>
           </div>
 
-          {/* Recording Time */}
-          <div className="flex items-center gap-2 px-3 py-1 bg-[#1E293B] rounded-md">
-            <Clock className="w-4 h-4 text-[#94A3B8]" />
-            <span className="text-white font-mono text-sm">
-              {currentRecordingTime}
-            </span>
+          <div className="flex items-center gap-3">
+            {/* Quick Question Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsQuickQuestionOpen(true)}
+              disabled={transcript.length === 0}
+              className={`${
+                transcript.length === 0
+                  ? "border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed"
+                  : "border-[#10B981] bg-[#10B981]/10 text-[#10B981] hover:bg-[#10B981]/20 hover:border-[#059669] shadow-lg"
+              }`}
+              title={
+                transcript.length === 0
+                  ? "Start speaking to ask questions about the transcript"
+                  : "Ask GPT-4o a question about what was said"
+              }
+            >
+              <HelpCircle className="w-4 h-4 mr-1" />
+              Ask AI
+            </Button>
+
+            <Button
+              onClick={handleStopSession}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              <Square className="w-4 h-4 mr-2" />
+              Stop Session
+            </Button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Quick Question Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsQuickQuestionOpen(true)}
-            disabled={transcript.length === 0}
-            className={`${
-              transcript.length === 0 
-                ? 'border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed' 
-                : 'border-[#10B981] bg-[#10B981]/10 text-[#10B981] hover:bg-[#10B981]/20 hover:border-[#059669] shadow-lg'
-            }`}
-            title={transcript.length === 0 
-              ? "Start speaking to ask questions about the transcript" 
-              : "Ask GPT-4o a question about what was said"
-            }
-          >
-            <HelpCircle className="w-4 h-4 mr-1" />
-            Ask AI
-          </Button>
-
-          <Button
-            onClick={handleStopSession}
-            className="bg-red-600 hover:bg-red-700 text-white"
-          >
-            <Square className="w-4 h-4 mr-2" />
-            Stop Session
-          </Button>
-        </div>
-      </header>
+        </header>
       </div>
 
       {/* Status Bar - Properly Separated */}
@@ -1080,42 +1698,52 @@ Please provide a helpful explanation or clarification.`;
               {isPaused ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F59E0B]/20 rounded-full border border-[#F59E0B]/30">
                   <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                  <span className="text-yellow-300 font-medium">Recording Paused</span>
+                  <span className="text-yellow-300 font-medium">
+                    Recording Paused
+                  </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-[#10B981]/20 rounded-full border border-[#10B981]/30">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-green-300 font-medium">Recording Active</span>
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-green-300 font-medium">
+                    Recording Active
+                  </span>
                 </div>
-            )}
-            
-            {/* AI Question Detection Status */}
-            {transcript.some(item => item.type === 'question') && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#3B82F6]/20 rounded-full border border-[#3B82F6]/30">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                <span className="text-blue-300 font-medium">AI Questions Detected</span>
-              </div>
-            )}
-            
-            {isGeneratingAnswer && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#10B981]/20 rounded-full border border-[#10B981]/30">
-                <div className="flex gap-1">
-                  <div className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"></div>
-                  <div
-                    className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"
-                    style={{ animationDelay: "0.1s" }}
-                  ></div>
-                  <div
-                    className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"
-                    style={{ animationDelay: "0.2s" }}
-                  ></div>
+              )}
+
+              {/* AI Question Detection Status */}
+              {transcript.some((item) => item.type === "question") && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#3B82F6]/20 rounded-full border border-[#3B82F6]/30">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                  <span className="text-blue-300 font-medium">
+                    AI Questions Detected
+                  </span>
                 </div>
-                <span className="text-[#10B981] font-medium">AI Answering...</span>
-              </div>
-            )}
+              )}
+
+              {isGeneratingAnswer && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#10B981]/20 rounded-full border border-[#10B981]/30">
+                  <div className="flex gap-1">
+                    <div className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"></div>
+                    <div
+                      className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"
+                      style={{ animationDelay: "0.1s" }}
+                    ></div>
+                    <div
+                      className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"
+                      style={{ animationDelay: "0.2s" }}
+                    ></div>
+                  </div>
+                  <span className="text-[#10B981] font-medium">
+                    AI Answering...
+                  </span>
+                </div>
+              )}
             </div>
             <div className="px-3 py-1.5 bg-[#0F172A]/50 rounded-full border border-[#64748B]/30">
-              <span className="text-[#94A3B8] font-medium">Session Duration: {currentRecordingTime}</span>
+              <span className="text-[#94A3B8] font-medium">
+                Session Duration: {currentRecordingTime}
+              </span>
             </div>
           </div>
         </div>
@@ -1123,7 +1751,10 @@ Please provide a helpful explanation or clarification.`;
 
       {/* Main Transcript Area */}
       <div className="flex-1 overflow-hidden bg-gradient-to-b from-[#0F172A] via-[#1E293B]/20 to-[#0F172A] mt-4">
-        <div ref={scrollRef} className="h-full overflow-y-auto px-6 py-4 space-y-4">
+        <div
+          ref={scrollRef}
+          className="h-full overflow-y-auto px-6 py-4 space-y-4"
+        >
           {transcript.length === 0 && !isPaused && (
             <div className="flex flex-col items-center justify-center h-full text-center text-[#94A3B8] py-20">
               <div className="relative">
@@ -1135,10 +1766,14 @@ Please provide a helpful explanation or clarification.`;
               <h2 className="text-3xl font-bold text-white mb-3">
                 Listening...
               </h2>
-              <p className="text-lg mb-6 max-w-md">Start speaking and your words will appear here in real-time.</p>
+              <p className="text-lg mb-6 max-w-md">
+                Start speaking and your words will appear here in real-time.
+              </p>
               <div className="flex items-center gap-3 px-4 py-2 bg-[#1E293B]/50 rounded-full border border-[#334155]">
                 <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-green-400 font-medium">Recording Active</span>
+                <span className="text-green-400 font-medium">
+                  Recording Active
+                </span>
               </div>
             </div>
           )}
@@ -1158,78 +1793,395 @@ Please provide a helpful explanation or clarification.`;
               </div>
             </div>
           )}
-          {transcript.map((item) => (
-            <div key={item.id} className="space-y-3">
-              {item.type === "speech" && (
-                <div className="group relative">
-                  <div className="flex items-start gap-4 p-5 bg-gradient-to-r from-[#1E293B]/80 to-[#334155]/60 backdrop-blur-sm rounded-xl border border-[#334155]/50 hover:border-[#6366F1]/30 transition-all duration-200 shadow-lg hover:shadow-xl">
-                    <div className="w-10 h-10 bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg">
-                      {item.speaker?.charAt(0) || "P"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="font-semibold text-[#F8FAFC] text-sm">
-                          {item.speaker}:
-                        </span>
-                        <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
-                          {formatTime(item.timestamp)}
-                        </span>
-                      </div>
-                      <p className="text-[#F8FAFC] leading-relaxed text-base">
-                        {item.content}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+          {groupedTranscript.map((group) => {
+            // If group has multiple speech items from same speaker, render as grouped
+            if (
+              group.length > 1 &&
+              group.every(
+                (item) =>
+                  item.type === "speech" && item.speaker === group[0].speaker
+              )
+            ) {
+              const firstItem = group[0];
+              const groupMinute = `${firstItem.timestamp.getHours()}:${firstItem.timestamp
+                .getMinutes()
+                .toString()
+                .padStart(2, "0")}`;
+              const groupId = `group-${firstItem.id}`;
 
-              {item.type === "question" && (
-                <div className="bg-gradient-to-r from-[#1E3A8A]/20 to-[#3B82F6]/10 border border-[#3B82F6]/30 rounded-xl p-5 ml-8 shadow-lg backdrop-blur-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#3B82F6] to-[#1D4ED8] rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
-                      <HelpCircle className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-semibold text-[#60A5FA] text-sm">
-                          Question Detected:
-                        </span>
-                        <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
-                          {formatTime(item.timestamp)}
-                        </span>
+              return (
+                <div key={groupId} className="space-y-3">
+                  <div className="group relative">
+                    <div className="flex items-start gap-4 p-5 bg-gradient-to-r from-[#1E293B]/80 to-[#334155]/60 backdrop-blur-sm rounded-xl border border-[#334155]/50 hover:border-[#6366F1]/30 transition-all duration-200 shadow-lg hover:shadow-xl">
+                      <div className="w-10 h-10 bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg">
+                        {firstItem.speaker?.charAt(0) || "P"}
                       </div>
-                      <p className="text-[#F8FAFC] leading-relaxed">
-                        {item.content}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-3">
+                          <span className="font-semibold text-[#F8FAFC] text-sm">
+                            {firstItem.speaker}:
+                          </span>
+                          <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
+                            {groupMinute}
+                          </span>
+                        </div>
 
-              {item.type === "answer" && (
-                <div className="bg-gradient-to-r from-[#0F172A]/90 to-[#1E293B]/80 border border-[#10B981]/30 rounded-xl p-5 ml-8 shadow-xl backdrop-blur-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
-                      <Bot className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-semibold text-[#10B981] text-sm">
-                          AI Answer:
-                        </span>
-                        <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
-                          {formatTime(item.timestamp)}
-                        </span>
+                        {/* Render each speech segment as a separate clickable line */}
+                        <div className="space-y-1">
+                          {group.map((item) => (
+                            <div key={item.id} className="group/item">
+                              <div
+                                className="cursor-pointer p-2 rounded-lg hover:bg-[#0F172A]/30 transition-colors flex items-center justify-between"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTranscriptItemClick(item.id);
+                                }}
+                              >
+                                <p className="text-[#F8FAFC] leading-relaxed text-base flex-1">
+                                  {item.content}
+                                </p>
+                                <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity ml-2">
+                                  <MessageSquare className="w-3 h-3 text-[#6366F1]" />
+                                </div>
+                              </div>
+
+                              {/* Inline Chat Section for individual items in group */}
+                              {activeInlineChat === item.id && (
+                                <div className="ml-4 mt-2 mb-3 space-y-3 bg-[#0F172A]/20 p-3 rounded-lg border border-[#334155]/30">
+                                  {/* Existing inline chat messages */}
+                                  {item.inlineChatMessages?.map((message) => (
+                                    <div
+                                      key={message.id}
+                                      className={`p-3 rounded-lg ${
+                                        message.type === "user_question"
+                                          ? "bg-[#6366F1]/10 border border-[#6366F1]/20"
+                                          : "bg-[#10B981]/10 border border-[#10B981]/20"
+                                      }`}
+                                    >
+                                      <div className="flex items-start gap-2">
+                                        <div
+                                          className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                            message.type === "user_question"
+                                              ? "bg-[#6366F1]"
+                                              : "bg-[#10B981]"
+                                          }`}
+                                        >
+                                          {message.type === "user_question" ? (
+                                            <span className="text-white text-xs">
+                                              Q
+                                            </span>
+                                          ) : (
+                                            <Bot className="w-3 h-3 text-white" />
+                                          )}
+                                        </div>
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span
+                                              className={`text-xs font-medium ${
+                                                message.type === "user_question"
+                                                  ? "text-[#6366F1]"
+                                                  : "text-[#10B981]"
+                                              }`}
+                                            >
+                                              {message.type === "user_question"
+                                                ? "You asked:"
+                                                : "AI responded:"}
+                                            </span>
+                                            <span className="text-xs text-[#94A3B8]">
+                                              {formatTime(message.timestamp)}
+                                            </span>
+                                            {message.isGenerating && (
+                                              <div className="flex gap-1">
+                                                <div className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"></div>
+                                                <div
+                                                  className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"
+                                                  style={{
+                                                    animationDelay: "0.1s",
+                                                  }}
+                                                ></div>
+                                                <div
+                                                  className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"
+                                                  style={{
+                                                    animationDelay: "0.2s",
+                                                  }}
+                                                ></div>
+                                              </div>
+                                            )}
+                                          </div>
+                                          <p className="text-[#F8FAFC] text-sm leading-relaxed">
+                                            {message.content}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                  {/* Inline chat input for individual items */}
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="text"
+                                      placeholder="Ask AI about this specific statement..."
+                                      value={inlineChatInputs[item.id] || ""}
+                                      onChange={(e) =>
+                                        setInlineChatInputs((prev) => ({
+                                          ...prev,
+                                          [item.id]: e.target.value,
+                                        }))
+                                      }
+                                      onKeyPress={(e) => {
+                                        if (e.key === "Enter") {
+                                          handleInlineChatSubmit(item.id);
+                                        }
+                                      }}
+                                      className="flex-1 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-[#F8FAFC] text-sm placeholder-[#64748B] focus:border-[#6366F1] focus:outline-none"
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        handleInlineChatSubmit(item.id)
+                                      }
+                                      disabled={
+                                        !inlineChatInputs[item.id]?.trim() ||
+                                        generatingInlineChats.has(item.id)
+                                      }
+                                      size="sm"
+                                      className="bg-[#6366F1] hover:bg-[#5B5CF6] text-white px-3"
+                                    >
+                                      {generatingInlineChats.has(item.id) ? (
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                      ) : (
+                                        <Send className="w-4 h-4" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-[#F8FAFC] leading-relaxed">
-                        {item.content}
-                      </p>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
-          ))}
+              );
+            } else {
+              // Render individual items (non-speech or different speakers)
+              return group.map((item) => (
+                <div key={item.id} className="space-y-3">
+                  {item.type === "speech" && (
+                    <div className="group relative">
+                      <div
+                        className="flex items-start gap-4 p-5 bg-gradient-to-r from-[#1E293B]/80 to-[#334155]/60 backdrop-blur-sm rounded-xl border border-[#334155]/50 hover:border-[#6366F1]/30 transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer"
+                        onClick={() => handleTranscriptItemClick(item.id)}
+                      >
+                        <div className="w-10 h-10 bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg">
+                          {item.speaker?.charAt(0) || "P"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="font-semibold text-[#F8FAFC] text-sm">
+                              {item.speaker}:
+                            </span>
+                            <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
+                              {formatTime(item.timestamp)}
+                            </span>
+                          </div>
+                          <p className="text-[#F8FAFC] leading-relaxed text-base">
+                            {item.content}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <MessageSquare className="w-4 h-4 text-[#6366F1]" />
+                          <span className="text-xs text-[#6366F1]">Ask AI</span>
+                          {activeInlineChat === item.id ? (
+                            <ChevronUp className="w-4 h-4 text-[#6366F1]" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-[#6366F1]" />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Inline Chat Section */}
+                      {activeInlineChat === item.id && (
+                        <div className="ml-14 mt-3 space-y-3">
+                          {/* Existing inline chat messages */}
+                          {item.inlineChatMessages?.map((message) => (
+                            <div
+                              key={message.id}
+                              className={`p-3 rounded-lg ${
+                                message.type === "user_question"
+                                  ? "bg-[#6366F1]/10 border border-[#6366F1]/20 ml-8"
+                                  : "bg-[#10B981]/10 border border-[#10B981]/20"
+                              }`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <div
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                    message.type === "user_question"
+                                      ? "bg-[#6366F1]"
+                                      : "bg-[#10B981]"
+                                  }`}
+                                >
+                                  {message.type === "user_question" ? (
+                                    <span className="text-white text-xs">
+                                      Q
+                                    </span>
+                                  ) : (
+                                    <Bot className="w-3 h-3 text-white" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span
+                                      className={`text-xs font-medium ${
+                                        message.type === "user_question"
+                                          ? "text-[#6366F1]"
+                                          : "text-[#10B981]"
+                                      }`}
+                                    >
+                                      {message.type === "user_question"
+                                        ? "You asked:"
+                                        : "AI responded:"}
+                                    </span>
+                                    <span className="text-xs text-[#94A3B8]">
+                                      {formatTime(message.timestamp)}
+                                    </span>
+                                    {message.isGenerating && (
+                                      <div className="flex gap-1">
+                                        <div className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"></div>
+                                        <div
+                                          className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"
+                                          style={{ animationDelay: "0.1s" }}
+                                        ></div>
+                                        <div
+                                          className="w-1 h-1 bg-[#10B981] rounded-full animate-bounce"
+                                          style={{ animationDelay: "0.2s" }}
+                                        ></div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <p className="text-[#F8FAFC] text-sm leading-relaxed">
+                                    {message.content}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Inline chat input */}
+                          <div className="flex gap-2 ml-8">
+                            <input
+                              type="text"
+                              placeholder="Ask AI about this statement..."
+                              value={inlineChatInputs[item.id] || ""}
+                              onChange={(e) =>
+                                setInlineChatInputs((prev) => ({
+                                  ...prev,
+                                  [item.id]: e.target.value,
+                                }))
+                              }
+                              onKeyPress={(e) => {
+                                if (e.key === "Enter") {
+                                  handleInlineChatSubmit(item.id);
+                                }
+                              }}
+                              className="flex-1 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-[#F8FAFC] text-sm placeholder-[#64748B] focus:border-[#6366F1] focus:outline-none"
+                            />
+                            <Button
+                              onClick={() => handleInlineChatSubmit(item.id)}
+                              disabled={
+                                !inlineChatInputs[item.id]?.trim() ||
+                                generatingInlineChats.has(item.id)
+                              }
+                              size="sm"
+                              className="bg-[#6366F1] hover:bg-[#5B5CF6] text-white px-3"
+                            >
+                              {generatingInlineChats.has(item.id) ? (
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              ) : (
+                                <Send className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {item.type === "question" && (
+                    <div className="bg-gradient-to-r from-[#1E3A8A]/20 to-[#3B82F6]/10 border border-[#3B82F6]/30 rounded-xl p-5 ml-8 shadow-lg backdrop-blur-sm">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-[#3B82F6] to-[#1D4ED8] rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                          <HelpCircle className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-semibold text-[#60A5FA] text-sm">
+                              Question Detected:
+                            </span>
+                            <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
+                              {formatTime(item.timestamp)}
+                            </span>
+                          </div>
+                          <p className="text-[#F8FAFC] leading-relaxed">
+                            {item.content}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {item.type === "answer" && (
+                    <div className="bg-gradient-to-r from-[#0F172A]/90 to-[#1E293B]/80 border border-[#10B981]/30 rounded-xl p-5 ml-8 shadow-xl backdrop-blur-sm">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                          <Bot className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-semibold text-[#10B981] text-sm">
+                              AI Answer:
+                            </span>
+                            <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
+                              {formatTime(item.timestamp)}
+                            </span>
+                          </div>
+                          <p className="text-[#F8FAFC] leading-relaxed">
+                            {item.content}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {item.type === "ai_request" && (
+                    <div className="group relative">
+                      <div className="flex items-start gap-4 p-5 bg-gradient-to-r from-[#6366F1]/10 to-[#8B5CF6]/10 backdrop-blur-sm rounded-xl border border-[#6366F1]/30 shadow-lg">
+                        <div className="w-10 h-10 bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg">
+                          <Bot className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="font-semibold text-[#F8FAFC] text-sm">
+                              {item.speaker} (asked AI):
+                            </span>
+                            <span className="text-xs text-[#94A3B8] bg-[#0F172A]/50 px-2 py-1 rounded-full">
+                              {formatTime(item.timestamp)}
+                            </span>
+                            <span className="text-xs bg-[#6366F1]/20 text-[#6366F1] px-2 py-1 rounded-full">
+                              AI Request
+                            </span>
+                          </div>
+                          <p className="text-[#F8FAFC] leading-relaxed text-base">
+                            {item.content}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ));
+            }
+          })}
 
           {isGeneratingAnswer && (
             <Card className="bg-gradient-to-r from-[#10B981]/10 via-[#059669]/10 to-[#047857]/10 border-[#10B981] ml-8 shadow-xl backdrop-blur-sm">
@@ -1458,7 +2410,9 @@ Please provide a helpful explanation or clarification.`;
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-8">
                 <div className="flex items-center gap-3 px-4 py-2 bg-[#0F172A]/50 rounded-full border border-[#334155]">
-                  <span className="text-sm text-[#F8FAFC] font-medium">Voice Answer</span>
+                  <span className="text-sm text-[#F8FAFC] font-medium">
+                    Voice Answer
+                  </span>
                   <Switch
                     checked={voiceAnswerEnabled}
                     onCheckedChange={setVoiceAnswerEnabled}
@@ -1472,9 +2426,10 @@ Please provide a helpful explanation or clarification.`;
                   onClick={togglePauseResume}
                   variant={isPaused ? "default" : "outline"}
                   size="lg"
-                  className={isPaused 
-                    ? "bg-gradient-to-r from-[#10B981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white shadow-lg" 
-                    : "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444] hover:bg-[#EF4444] hover:text-white"
+                  className={
+                    isPaused
+                      ? "bg-gradient-to-r from-[#10B981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white shadow-lg"
+                      : "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444] hover:bg-[#EF4444] hover:text-white"
                   }
                 >
                   {isPaused ? (
@@ -1490,74 +2445,87 @@ Please provide a helpful explanation or clarification.`;
                   )}
                 </Button>
 
-            <div className="flex gap-2">
-              <Button
-                onClick={handleSaveTranscript}
-                variant="outline"
-                size="sm"
-                className={`${
-                  transcript.length === 0 
-                    ? 'text-[#64748B] bg-gray-600/20 hover:bg-gray-600/20 border-gray-600 cursor-not-allowed' 
-                    : 'text-[#F8FAFC] bg-blue-600 hover:bg-blue-700 border-blue-500'
-                }`}
-                disabled={transcript.length === 0}
-                title={transcript.length === 0 
-                  ? "Start speaking to save transcript" 
-                  : "Save transcript to sessions"
-                }
-              >
-                <Save className="w-4 h-4 mr-1" />
-                Save
-              </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleSaveTranscript}
+                    variant="outline"
+                    size="sm"
+                    className={`${
+                      transcript.length === 0
+                        ? "text-[#64748B] bg-gray-600/20 hover:bg-gray-600/20 border-gray-600 cursor-not-allowed"
+                        : "text-[#F8FAFC] bg-blue-600 hover:bg-blue-700 border-blue-500"
+                    }`}
+                    disabled={transcript.length === 0}
+                    title={
+                      transcript.length === 0
+                        ? "Start speaking to save transcript"
+                        : "Save transcript to sessions"
+                    }
+                  >
+                    <Save className="w-4 h-4 mr-1" />
+                    Save
+                  </Button>
 
-              <Button
-                onClick={handleExportAsText}
-                variant="outline"
-                size="sm"
-                className={`${
-                  transcript.length === 0 
-                    ? 'border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed' 
-                    : 'border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]'
-                }`}
-                disabled={transcript.length === 0}
-                title={transcript.length === 0 ? "Start speaking to export transcript" : "Export as TXT file"}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                TXT
-              </Button>
+                  <Button
+                    onClick={handleExportAsText}
+                    variant="outline"
+                    size="sm"
+                    className={`${
+                      transcript.length === 0
+                        ? "border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed"
+                        : "border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]"
+                    }`}
+                    disabled={transcript.length === 0}
+                    title={
+                      transcript.length === 0
+                        ? "Start speaking to export transcript"
+                        : "Export as TXT file"
+                    }
+                  >
+                    <Download className="w-4 h-4 mr-1" />
+                    TXT
+                  </Button>
 
-              <Button
-                onClick={handleExportAsPdf}
-                variant="outline"
-                size="sm"
-                className={`${
-                  transcript.length === 0 
-                    ? 'border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed' 
-                    : 'border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]'
-                }`}
-                disabled={transcript.length === 0}
-                title={transcript.length === 0 ? "Start speaking to export transcript" : "Export as PDF file"}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                PDF
-              </Button>
+                  <Button
+                    onClick={handleExportAsPdf}
+                    variant="outline"
+                    size="sm"
+                    className={`${
+                      transcript.length === 0
+                        ? "border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed"
+                        : "border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]"
+                    }`}
+                    disabled={transcript.length === 0}
+                    title={
+                      transcript.length === 0
+                        ? "Start speaking to export transcript"
+                        : "Export as PDF file"
+                    }
+                  >
+                    <Download className="w-4 h-4 mr-1" />
+                    PDF
+                  </Button>
 
-              <Button
-                onClick={handleExportAsWord}
-                variant="outline"
-                size="sm"
-                className={`${
-                  transcript.length === 0 
-                    ? 'border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed' 
-                    : 'border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]'
-                }`}
-                disabled={transcript.length === 0}
-                title={transcript.length === 0 ? "Start speaking to export transcript" : "Export as Word document"}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                Word
-              </Button>
-            </div>
+                  <Button
+                    onClick={handleExportAsWord}
+                    variant="outline"
+                    size="sm"
+                    className={`${
+                      transcript.length === 0
+                        ? "border-[#64748B] text-[#64748B] hover:bg-[#1E293B]/50 cursor-not-allowed"
+                        : "border-[#334155] text-[#F8FAFC] hover:bg-[#1E293B]"
+                    }`}
+                    disabled={transcript.length === 0}
+                    title={
+                      transcript.length === 0
+                        ? "Start speaking to export transcript"
+                        : "Export as Word document"
+                    }
+                  >
+                    <Download className="w-4 h-4 mr-1" />
+                    Word
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
