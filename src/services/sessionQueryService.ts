@@ -18,7 +18,7 @@ export const querySession = async (
   onError: (error: Error) => void
 ) => {
   try {
-    const session = getSessionById(sessionId);
+    const session = await getSessionById(sessionId);
     if (!session) {
       throw new Error("Session not found");
     }
@@ -80,7 +80,8 @@ export const searchAllSessions = async (
   onError: (error: Error) => void
 ) => {
   try {
-    const allSessions = getAllSessions();
+
+    const allSessions = await getAllSessions();
 
     // Find sessions that contain the search query
     const relevantSessions = allSessions.filter((session) => {
@@ -151,17 +152,20 @@ Please provide a helpful summary of what was found related to "${searchQuery}" a
 
 // Get conversation history for a session (questions and AI responses)
 export const getSessionConversation = (sessionId: string) => {
-  const session = getSessionById(sessionId);
-  if (!session) return [];
-
-  return session.transcript
-    .filter((item) => item.type === "question" || item.type === "ai_response")
-    .map((item) => ({
-      id: item.id,
-      type: item.type,
-      content: item.content,
-      timestamp: item.timestamp,
-    }));
+  // Support both sync and async getSessionById
+  const getConversation = async () => {
+    const session = await getSessionById(sessionId);
+    if (!session) return [];
+    return session.transcript
+      .filter((item) => item.type === "question" || item.type === "ai_response")
+      .map((item) => ({
+        id: item.id,
+        type: item.type,
+        content: item.content,
+        timestamp: item.timestamp,
+      }));
+  };
+  return getConversation();
 };
 
 // Generate a smart summary of a session
@@ -172,7 +176,7 @@ export const generateSessionSummary = async (
   onError: (error: Error) => void
 ) => {
   try {
-    const session = getSessionById(sessionId);
+    const session = await getSessionById(sessionId);
     if (!session) {
       throw new Error("Session not found");
     }

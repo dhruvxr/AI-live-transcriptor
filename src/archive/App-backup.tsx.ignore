@@ -303,9 +303,9 @@ function App() {
   const [currentPage, setCurrentPage] = useState<
     "dashboard" | "live" | "settings" | "sessions" | "session-detail"
   >("dashboard");
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    null
-  );
+    /* const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+      null
+    ); */
 
   const navigate: NavigateFunction = (page, sessionId) => {
     console.log(

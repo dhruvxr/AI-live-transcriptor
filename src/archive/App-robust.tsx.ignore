@@ -228,89 +228,89 @@ function App() {
     null
   );
 
-  const navigate: NavigateFunction = (page, sessionId) => {
-    console.log(
-      `Navigating to: ${page}`,
-      sessionId ? `with sessionId: ${sessionId}` : ""
-    );
-    setCurrentPage(page);
-    if (sessionId) {
-      setSelectedSessionId(sessionId);
-    }
-  };
 
-  const renderCurrentPage = () => {
-    try {
-      switch (currentPage) {
-        case "dashboard":
-          return <Dashboard onNavigate={navigate} />;
-        case "live":
-          return <LiveTranscription onNavigate={navigate} />;
-        case "settings":
-          return <Settings onNavigate={navigate} />;
-        case "sessions":
-          return <PastSessions onNavigate={navigate} />;
-        case "session-detail":
-          return (
-            <SessionDetail
-              onNavigate={navigate}
-              sessionId={selectedSessionId}
-            />
-          );
-        default:
-          return <Dashboard onNavigate={navigate} />;
+
+    /* const navigate: NavigateFunction = (page, sessionId) => {
+      console.log(
+        `Navigating to: ${page}`,
+        sessionId ? `with sessionId: ${sessionId}` : ""
+      );
+      setCurrentPage(page);
+      if (sessionId) {
+        setSelectedSessionId(sessionId);
       }
-    } catch (error) {
-      console.error("Error rendering page:", error);
-      return (
-        <div
-          style={{
-            minHeight: "100vh",
-            backgroundColor: "#0F172A",
-            color: "white",
-            padding: "2rem",
-            textAlign: "center",
-          }}
-        >
-          <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>
-            ❌ Error Loading Page
-          </h1>
-          <p style={{ marginBottom: "2rem" }}>
-            Something went wrong while loading the {currentPage} page.
-          </p>
-          <button
-            onClick={() => navigate("dashboard")}
-            style={{
-              backgroundColor: "#3B82F6",
-              color: "white",
-              padding: "1rem 2rem",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-            }}
-          >
-            ← Back to Dashboard
-          </button>
+    };
+}
+    const renderCurrentPage = () => {
+      try {
+        switch (currentPage) {
+          case "dashboard":
+            return <Dashboard onNavigate={navigate} />;
+          case "live":
+            return <LiveTranscription onNavigate={navigate} />;
+          case "settings":
+            return <Settings onNavigate={navigate} />;
+          case "sessions":
+            return <PastSessions onNavigate={navigate} />;
+          case "session-detail":
+            return (
+              <SessionDetail
+                onNavigate={navigate}
+                sessionId={selectedSessionId}
+              />
+            );
+          default:
+            return <Dashboard onNavigate={navigate} />;
+        }
+      } catch (error) {
+        console.error("Error rendering page:", error);
+        return (
           <div
             style={{
-              marginTop: "2rem",
-              textAlign: "left",
-              backgroundColor: "#1E293B",
-              padding: "1rem",
-              borderRadius: "8px",
+              minHeight: "100vh",
+              backgroundColor: "#0F172A",
+              color: "white",
+              padding: "2rem",
+              textAlign: "center",
             }}
           >
-            <strong>Error details:</strong>
-            <pre style={{ color: "#EF4444", fontSize: "0.9rem" }}>
-              {String(error)}
-            </pre>
+            <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>
+              ❌ Error Loading Page
+            </h1>
+            <p style={{ marginBottom: "2rem" }}>
+              Something went wrong while loading the {currentPage} page.
+            </p>
+            <button
+              onClick={() => navigate("dashboard")}
+              style={{
+                backgroundColor: "#3B82F6",
+                color: "white",
+                padding: "1rem 2rem",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+              }}
+            >
+              ← Back to Dashboard
+            </button>
+            <div
+              style={{
+                marginTop: "2rem",
+                textAlign: "left",
+                backgroundColor: "#1E293B",
+                padding: "1rem",
+                borderRadius: "8px",
+              }}
+            >
+              <strong>Error details:</strong>
+              <pre style={{ color: "#EF4444", fontSize: "0.9rem" }}>
+                {String(error)}
+              </pre>
+            </div>
           </div>
-        </div>
-      );
-    }
-  };
+        );
+      }
+    };
 
-  return <div className="min-h-screen bg-[#0F172A]">{renderCurrentPage()}</div>;
-}
-
+    return <div className="min-h-screen bg-[#0F172A]">{renderCurrentPage()}</div>; */
 export default App;

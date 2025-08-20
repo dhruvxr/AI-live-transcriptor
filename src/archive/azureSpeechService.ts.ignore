@@ -7,6 +7,7 @@ export const startTranscription = (
   onResult: (text: string, isFinal: boolean) => void,
   onError: (error: string) => void
 ) => {
+/*
   getAzureConfig()
     .then((config) => {
       if (!config.speechKey || !config.speechRegion) {
@@ -63,9 +64,11 @@ export const startTranscription = (
     .catch((error) => {
       onError(error.message);
     });
+*/
 };
 
 export const stopTranscription = () => {
+/*
   if (recognizer) {
     recognizer.stopContinuousRecognitionAsync(
       () => {
@@ -80,4 +83,5 @@ export const stopTranscription = () => {
       }
     );
   }
+*/
 };

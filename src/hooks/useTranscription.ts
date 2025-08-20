@@ -1,9 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import * as sdk from "microsoft-cognitiveservices-speech-sdk";
-import {
-  startTranscription,
-  stopTranscription,
-} from "../services/azureSpeechService";
+import { enhancedAudioService } from "../services/enhancedAudioService";
 
 export interface TranscriptItem {
   id: string;
@@ -24,10 +20,10 @@ export const useTranscription = () => {
   const fullTranscriptRef = useRef<string[]>([]);
   const currentSegmentIdRef = useRef<string | null>(null);
 
-  const handleResult = useCallback((result: sdk.SpeechRecognitionResult) => {
-    const isFinal = result.reason === sdk.ResultReason.RecognizedSpeech;
+  // Adapter for enhancedAudioService's TranscriptionResult
+  const handleEnhancedResult = useCallback((result: any) => {
     const content = result.text;
-
+    const isFinal = true; // Assume all results are final for now
     if (!content) return;
 
     setTranscript((prev) => {
@@ -44,8 +40,6 @@ export const useTranscription = () => {
             content: updatedContent.trim(),
             isFinal,
           };
-
-          // Replace the old item with the updated one
           return prev.map((item) =>
             item.id === currentSegmentIdRef.current ? updatedItem : item
           );
@@ -86,12 +80,17 @@ export const useTranscription = () => {
     setIsRecording(true);
     setIsPaused(false);
     setError(null);
-    startTranscription(handleResult, handleError);
-  }, [handleResult, handleError]);
+    // You can customize options as needed
+    enhancedAudioService.startRecording(
+      { captureMicrophone: true, captureSystemAudio: false },
+      handleEnhancedResult,
+      handleError
+    );
+  }, [handleEnhancedResult, handleError]);
 
   const stop = useCallback(() => {
     if (isRecording) {
-      stopTranscription();
+      enhancedAudioService.stopRecording && enhancedAudioService.stopRecording();
     }
     setIsRecording(false);
   }, [isRecording]);
@@ -100,18 +99,22 @@ export const useTranscription = () => {
     const nextPausedState = !isPaused;
     setIsPaused(nextPausedState);
     if (nextPausedState) {
-      stopTranscription();
+      enhancedAudioService.stopRecording && enhancedAudioService.stopRecording();
     } else {
       if (isRecording) {
-        startTranscription(handleResult, handleError);
+        enhancedAudioService.startRecording(
+          { captureMicrophone: true, captureSystemAudio: false },
+          handleEnhancedResult,
+          handleError
+        );
       }
     }
-  }, [isPaused, isRecording, handleResult, handleError]);
+  }, [isPaused, isRecording, handleEnhancedResult, handleError]);
 
   useEffect(() => {
     return () => {
       if (isRecording) {
-        stopTranscription();
+        enhancedAudioService.stopRecording && enhancedAudioService.stopRecording();
       }
     };
   }, [isRecording]);

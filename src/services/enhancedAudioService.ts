@@ -471,7 +471,7 @@ class EnhancedAudioService {
 
   // Resume with callback support for better error handling
   resumeRecordingWithCallback(
-    onResult: (result: TranscriptionResult) => void,
+    _onResult: (result: TranscriptionResult) => void,
     onError: (error: string) => void
   ): void {
     if (!this.recognizer) {

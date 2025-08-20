@@ -384,6 +384,7 @@ function App() {
     null
   );
 
+  /*
   const navigate: NavigateFunction = (page, sessionId) => {
     console.log(
       `Navigating to: ${page}`,

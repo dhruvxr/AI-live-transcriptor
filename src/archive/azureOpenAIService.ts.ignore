@@ -2,6 +2,7 @@ import { OpenAIClient } from "@azure/openai";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { getAzureConfig } from "../config/azureConfig";
 
+/*
 export async function streamAzureOpenAIResponse(
   prompt: string
 ): Promise<ReadableStream<Uint8Array>> {
@@ -44,3 +45,4 @@ export async function streamAzureOpenAIResponse(
 
   return stream;
 }
+*/

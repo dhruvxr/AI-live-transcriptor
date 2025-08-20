@@ -12,7 +12,7 @@ import {
 } from "./ui/select";
 import { Slider } from "./ui/slider";
 import { Checkbox } from "./ui/checkbox";
-import { ArrowLeft, Save, Download, Upload } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import { getAzureConfig } from "../src/config/azureConfig";
 import { 
   getStorageStats, 

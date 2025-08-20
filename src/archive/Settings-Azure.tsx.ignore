@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-
+/*
 const SettingsAzure: React.FC = () => {
   const [config, setConfig] = useState<Partial<AzureConfig>>({
     speechKey: "",
@@ -115,4 +115,6 @@ const SettingsAzure: React.FC = () => {
   );
 };
 
+export default SettingsAzure;
+*/
 export default SettingsAzure;

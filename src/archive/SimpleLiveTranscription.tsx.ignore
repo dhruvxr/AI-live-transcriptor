@@ -16,6 +16,7 @@ interface TranscriptItem {
   speaker: string;
 }
 
+/*
 export function SimpleLiveTranscription({
   onNavigate,
 }: LiveTranscriptionProps) {
@@ -442,3 +443,4 @@ export function SimpleLiveTranscription({
     </div>
   );
 }
+*/
